@@ -38,10 +38,14 @@ const create_program = (context, shaders) => {
 
 const extractlocations = (context, program, attribs, globals) => {
 	const ret = {};
-	for (const attrib of attribs)
+	for (const attrib of attribs) {
 		ret[attrib] = context.getAttribLocation(program, attrib);
-	for (const global of globals)
+		console.assert(ret[attrib] !== undefined);
+	}
+	for (const global of globals) {
 		ret[global] = context.getUniformLocation(program, global);
+		console.assert(ret[global] !== undefined);
+	}
 	return ret;
 };
 
@@ -56,6 +60,7 @@ const create_const_buffer = (context, data) => {
 // count is mandatory because the webgl api sucks.
 const set_vertexes = (context, vertex_buffer, vertex_location, components,
 		      stride, offset) => {
+	console.assert(vertex_buffer !== undefined && vertex_location !== undefined);
 	context.bindBuffer(context.ARRAY_BUFFER, vertex_buffer);
 	context.vertexAttribPointer(vertex_location, components,
 				    context.FLOAT,
@@ -89,7 +94,7 @@ const quat_to_mat = (r, x, y, z) => {
 	const rx = r * x;
 	const ry = r * y;
 	const rz = r * z;
-	// basically what happens when multiplying a quat with itself.
+	// basically what happens when multiplying a quat with its conj.
 	// https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
 	return [
 		[1-yy-zz,  xy-rz,  xz+ry, 0],
@@ -225,7 +230,35 @@ const stuff_matrix_to_uniform = (context, mat_location, matrix) => {
 	// if true was used instead of false, this would have transposed the
 	// matrix, simplifying this a lot, but non~. OpenGL ES forbid it.
 	context.uniformMatrix4fv(mat_location, false, flattened)
-}
+};
+
+const create_texture = (context, image) => {
+	const texture = context.createTexture();
+	context.bindTexture(context.TEXTURE_2D, texture);
+	context.texImage2D(context.TEXTURE_2D, 0, context.RGBA,
+			   context.RGBA, context.UNSIGNED_BYTE, image);
+	// clamp to the edges, it's not like we will wrap textures or whatever.
+	// quite the contrary. Also webgl1 requires this for non-power of two ?
+	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S,
+			      context.CLAMP_TO_EDGE);
+	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T,
+			      context.CLAMP_TO_EDGE);
+	// too small ? use linear... not sure how much time this will happen.
+	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER,
+			      context.LINEAR);
+	// show me those pixels, bro
+	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER,
+			      context.NEAREST);
+	return texture;
+};
+
+const load_me_a_texture = (context, url) => new Promise((resolve, reject) => {
+	const img = new Image();
+	img.onload = () => resolve(create_texture(context, img));
+	img.onerror = reject;
+	img.src = url;
+});
+
 
 class MyApp {
 	constructor () {
@@ -235,16 +268,25 @@ class MyApp {
 		this.vertexshader = compile_shader(this.context,
 						   "VERTEX_SHADER", `
 		attribute vec4 pos;
+		attribute vec2 texcoord;
 		uniform mat4 projectmat;
+		varying highp vec2 texcoord2;
 		void main() {
 			gl_Position = projectmat * pos;
+			texcoord2 = texcoord;
 		}
 		`);
 
 		this.fragshader = compile_shader(this.context,
 						 'FRAGMENT_SHADER', `
+		varying highp vec2 texcoord2;
+		uniform sampler2D colorsampler;
 		void main() {
-			gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
+			// FIXME: find what control interpolation in there.
+			gl_FragColor = texture2D(colorsampler, texcoord2 / 4.);
+			if (gl_FragColor.a == 0.)
+				discard;
+			// gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
 		}
 		`);
 
@@ -252,20 +294,37 @@ class MyApp {
 					      [this.vertexshader,
 					       this.fragshader]);
 		this.locations = extractlocations(this.context, this.program,
-						  ["pos"], ["projectmat"]);
+						  ["pos", "texcoord"],
+						  ["projectmat",
+						   "colorsampler"]);
 
 		this.context.useProgram(this.program);
 
 		// this is a triangle strip
 		// will probably migrate to quads afterwards.
-		const buffer = create_const_buffer(this.context, 
+		// also, couldn't find default value of 4 coordinate, hoping
+		// it's 1.
+		const vertexes = create_const_buffer(this.context, 
 			Float32Array.of(
 				-1,1,  0,
 				1,1,   0,
 				-1,-1, 0,
 				1,-1,  0));
 
-		set_vertexes(this.context, buffer, this.locations.pos, 3);
+		set_vertexes(this.context, vertexes, this.locations.pos, 3);
+
+
+		const texcoords = create_const_buffer(this.context,
+			Float32Array.of(
+				0, 1,
+				1, 1,
+				0, 0,
+				1, 0));
+
+		set_vertexes(this.context, texcoords, this.locations.texcoord,
+			     2);
+
+
 		this.proj_matrix = throw_at_wall(Math.PI/4, 4/3, -1, -200);
 		this.context.enable(this.context.DEPTH_TEST);
 		// isn't that the default ?
@@ -275,6 +334,10 @@ class MyApp {
 		this.context.clearDepth(1);
 
 		this.nudge_angle = 0;
+	}
+	async load () {
+		this.texture = await load_me_a_texture(this.context,
+						       "./image.png");
 	}
 	render_one() {
 		const view_matrix = rotate_me(Math.PI/4, this.nudge_angle, 0.1);
@@ -287,15 +350,22 @@ class MyApp {
 		this.context.clear(this.context.COLOR_BUFFER_BIT
 				   | this.context.DEPTH_BUFFER_BIT);
 
+		this.context.activeTexture(this.context.TEXTURE0);
+		this.context.bindTexture(this.context.TEXTURE_2D, this.texture);
+		this.context.uniform1i(this.locations.colorsampler, 0);
+
 		this.context.drawArrays(this.context.TRIANGLE_STRIP, 0, 4);
 	}
 }
 
-const app = new MyApp();
-function render_me_beautiful(millisec_elapsed) {
-	app.nudge_angle += millisec_elapsed / 10000;
-	app.render_one();
-	requestAnimationFrame(render_me_beautiful);
-}
+(async () => {
+	const app = new MyApp();
+	await app.load();
+	function render_me_beautiful(millisec) {
+		app.nudge_angle = millisec / 250;
+		app.render_one();
+		requestAnimationFrame(render_me_beautiful);
+	}
 
-render_me_beautiful(0);
+	render_me_beautiful(0);
+})();
