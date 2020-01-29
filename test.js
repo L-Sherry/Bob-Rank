@@ -306,9 +306,13 @@ class MyApp {
 		// it's 1.
 		const vertexes = create_const_buffer(this.context, 
 			Float32Array.of(
+				// left bottom
 				-1,1,  0,
+				// right bottom
 				1,1,   0,
+				// left top
 				-1,-1, 0,
+				// right top
 				1,-1,  0));
 
 		set_vertexes(this.context, vertexes, this.locations.pos, 3);
@@ -316,9 +320,13 @@ class MyApp {
 
 		const texcoords = create_const_buffer(this.context,
 			Float32Array.of(
+				// left bottom ... so this assumes screen, ok.
 				0, 1,
+				// right bottom
 				1, 1,
+				// left top
 				0, 0,
+				// right top
 				1, 0));
 
 		set_vertexes(this.context, texcoords, this.locations.texcoord,

@@ -1,0 +1,7 @@
+{
+	"name":"Bobrank",
+	"description": "Adds unforgettabe special effects on S-Rank",
+	"plugin": "plugin.js",
+	"version": "0.0.1"
+}
+

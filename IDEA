@@ -1,0 +1,13 @@
+should probably patch drawLayers
+to draw on webgl instead.
+
+should check if discarding things in the fragment shader does affect zindex or not, if it does, then we have
+to optimise as follow:
+- find out everything without transparent pixelz
+- draw them from top to bottom, with face culling enableded
+- disable face culling
+- draw all the things with transparent pixelz
+
+there is a wallY attribute that should probably be used for entities.
+
+
