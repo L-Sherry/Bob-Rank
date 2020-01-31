@@ -41,22 +41,29 @@ const extractlocations = (context, program, attribs, globals) => {
 	const ret = {};
 	for (const attrib of attribs) {
 		ret[attrib] = context.getAttribLocation(program, attrib);
-		console.assert(ret[attrib] !== undefined);
+		console.assert(ret[attrib] !== -1);
+		context.enableVertexAttribArray(ret[attrib]);
 	}
 	for (const global of globals) {
 		ret[global] = context.getUniformLocation(program, global);
-		console.assert(ret[global] !== undefined);
+		console.assert(ret[global] !== -1);
 	}
 	return ret;
 };
 
 // Fill a mostly-constant buffer.
 const fill_const_buffer = (context, buffer, data) => {
+	console.assert(buffer !== undefined && data);
 	if (data.constructor !== Float32Array)
 		data = new Float32Array(data);
 	// where are my display lists ?
 	context.bindBuffer(context.ARRAY_BUFFER, buffer);
 	context.bufferData(context.ARRAY_BUFFER, data, context.STATIC_DRAW);
+};
+
+const select_buffer = (context, buffer) => {
+	console.assert(buffer !== undefined);
+	context.bindBuffer(context.ARRAY_BUFFER, buffer);
 };
 
 
@@ -237,14 +244,25 @@ const create_texture = (context, image) => {
 	return texture;
 };
 
+const set_vertex_format = (context, location, components, stride, offset) => {
+	console.assert(location !== undefined);
+	context.vertexAttribPointer(location, components, context.FLOAT,
+				    false, stride * 4, offset * 4);
+};
+
 const assign_texture = (context, texture) => {
 	console.assert(texture);
 	context.bindTexture(context.TEXTURE_2D, texture);
 };
 
+const draw_triangles = (context, from, size) =>
+	context.drawArrays(context.TRIANGLES, from, size);
+
 // maybe there is a way to iteratize it ?
-const forEachBackward = (array, callback) => {
-	for (let idx = array.length - 1; idx >= 0; --idx)
+const forEachBackward = (array, callback, from) => {
+	if (from === undefined)
+		from = array.length - 1;
+	for (let idx = from; idx >= 0; --idx)
 		callback(array[idx], idx, array);
 };
 
@@ -304,6 +322,8 @@ class BobGeo {
 		const right = left + tile_size / total_width;
 		const top_ = tile_y_pos / total_height;
 		const bottom = top_ + tile_size / total_width;
+		//console.assert(left >= 0 && right <= 1);
+		//console.assert(top_ >= 0 && bottom <= 1);
 		return { topleft: [ left, top_ ],
 			 topright: [ right, top_ ],
 			 bottomleft: [ left, bottom ],
@@ -378,32 +398,26 @@ class BobGeo {
 }
 
 class BobMap {
-	constructor(context, vertex_location, text_coord_location,
-		    texture_location) {
+	constructor(context, vertex_location, text_coord_location) {
 		this.context = context;
 		this.vertex_location = vertex_location;
 		this.text_coord_location = text_coord_location;
-		this.texture_location = texture_location;
 		this.texture_trove = new TextureTrove(this.context);
 		this.buf = context.createBuffer();
 		this.textures_ranges = [];
 	}
 	render () {
-		this.context.bindBuffer(this.context.ARRAY_BUFFER, this.buf);
+		select_buffer(this.context, this.buf);
 		// three floats for the position, two floats for texture pos
-		const total_stride = (3 + 2) * 4;
-		this.context.vertexAttribPointer(this.vertex_location, 3,
-						 this.context.FLOAT, false,
-						 total_stride, 0);
-
-		this.context.vertexAttribPointer(this.text_coord_location, 3,
-						 this.context.FLOAT, false,
-						 total_stride, 3*4);
+		// total = 5
+		set_vertex_format(this.context, this.vertex_location, 3, 5, 0);
+		set_vertex_format(this.context, this.text_coord_location, 2,
+				  5, 3);
 
 		for (const textrange of this.textures_ranges) {
 			assign_texture(this.context, textrange.texture);
-			this.context.drawArray(this.context.TRIANGLES,
-					       textrange.start, textrange.size);
+			draw_triangles(this.context, textrange.start,
+				       textrange.size);
 		}
 	}
 	steal_map () {
@@ -431,7 +445,7 @@ class BobMap {
 			
 			const true_tiles_per_line = Math.floor(tiles_per_line);
 			const tile_x = tileno % true_tiles_per_line;
-			const tile_y = tileno / true_tiles_per_line;
+			const tile_y = Math.floor(tileno / true_tiles_per_line);
 
 			const quad_st_coord
 				= BobGeo.make_quad_tex(tile_x, tile_y,
@@ -478,19 +492,19 @@ class BobMap {
 					current_texture.size
 						= i - current_texture.start;
 					current_texture = {path: map.tiles.path,
-							   start: i, end: null};
+							   start: i};
 					textures_ranges.push(current_texture);
 					const img = map.tiles.data;
 					tex_trove.add(map.tiles.path, img);
 				}
 				handle_one_map_tiles(map, level.height);
 			});
-		});
+		}, ig.game.maxLevel - 1);
 		current_texture.size = i - current_texture.start;
 		tex_trove.cleanup();
 		textures_ranges.forEach(e => e.texture = tex_trove.get(e.path));
 
-		fill_const_buffer(this.context, this.buffer, everything);
+		fill_const_buffer(this.context, this.buf, everything);
 
 		// now i have the map ! time to find the treasure !
 	}
@@ -501,8 +515,11 @@ class BobRender {
 		this.context = null;
 		this.map = null;
 		this.nudge_angle = 0;
+		this.nudge_intensity = 0;
 		// FIXME: this should vary over time
-		this.proj_matrix = throw_at_wall(Math.PI/4, 4/3, -1, -200);
+		this.proj_matrix = throw_at_wall(Math.PI*0.5, 4/3, -1, -300);
+		this.debugshift = { x:0, y:0, z:0 };
+		this.rotate = Math.PI / 4;
 	}
 
 	setup_canvas(canvas) {
@@ -526,7 +543,7 @@ class BobRender {
 		uniform sampler2D colorsampler;
 		void main() {
 			// FIXME: find what control interpolation in there.
-			gl_FragColor = texture2D(colorsampler, texcoord2 / 4.);
+			gl_FragColor = texture2D(colorsampler, texcoord2);
 			if (gl_FragColor.a == 0.)
 				discard;
 			// gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
@@ -543,8 +560,6 @@ class BobRender {
 
 		this.context.useProgram(this.program);
 
-		this.context.enableVertexAttribArray(this.locations.pos);
-		this.context.enableVertexAttribArray(this.locations.texcoord);
 		// Assume that TEXTURE0 is the base color texture
 		this.context.uniform1i(this.locations.colorsampler, 0);
 		// note: TEXTURE0 is the default ACTIVE_TEXTURE.
@@ -559,7 +574,8 @@ class BobRender {
 		this.context.clearColor(0, 0, 1, 1); // blue sky (ok ...)
 		// note: the default clearDepth is 1
 
-		this.map = new BobMap(this.context);
+		this.map = new BobMap(this.context, this.locations.pos,
+				      this.locations.texcoord);
 	}
 
 	draw_layerz (parent) {
@@ -605,10 +621,19 @@ class BobRender {
 		if (!this.context)
 			return;
 
-		const view_matrix = rotate_me(Math.PI/4, this.nudge_angle, 0.1);
+		// FIXME: need to translate BEFORE THE ROTATION.
+		// you IDIOT !
+		// the only translation after the rotation is for the GODDAMN
+		// CAMERA WHICH IS ALREADY LOOKING AT 0.0 !
+		// which is why you put the center of the screen at 0,0
+		const view_matrix = rotate_me(this.rotate, this.nudge_angle,
+					      this.nudge_intensity);
 		translate_matrix(view_matrix,
-				 -ig.game.screen.x -570/2,
-				 -ig.game.screen.y -320/2, -100);
+				 this.debugshift.x -ig.game.screen.x +570/2,
+				 // FIXME: move also in y, or else, you're not
+				 // looking at 0,0,0
+				 this.debugshift.y -ig.game.screen.y +320/2,
+				 this.debugshift.z-200);
 
 		const mulled = mulmat(this.proj_matrix, view_matrix);
 		stuff_matrix_to_uniform(this.context,
@@ -649,7 +674,7 @@ export default class Mod extends Plugin {
 		this.canvas3d = document.createElement("canvas");
 		this.canvas3d.width = 400;
 		this.canvas3d.height = 300;
-		this.canvas3d.marginTop = "500px";
+		this.canvas3d.style.marginTop = "500px";
 		document.getElementById("game").appendChild(this.canvas3d);
 
 		this.renderer.setup_canvas(this.canvas3d);
