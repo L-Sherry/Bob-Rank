@@ -95,6 +95,7 @@ const quat_to_mat = (r, x, y, z) => {
 	];
 };
 
+// Your off-the-mill matrix multiplication. Slow.
 const mulmat = (mat1, mat2) => mat1.map(
 	(line1) =>
 		line1.reduce(
@@ -103,6 +104,16 @@ const mulmat = (mat1, mat2) => mat1.map(
 					    resval + val1 * mat2[col1][col2]),
 			[0, 0, 0, 0])
 );
+
+const mulvec = (mat, vec) =>
+	mat.map(l => l.reduce((a,v,i)=> a + v * vec[i],0));
+const mulvecnorm = (mat, vec) => {
+	const mulled = mulvec(mat, vec);
+	return [mulled[0] / mulled[3],
+		mulled[1] / mulled[3],
+		mulled[2] / mulled[3]];
+}
+window.mulvecnorm = mulvecnorm;
 
 // rotate_x_angle = 0 -> xy plane is dislayed, pi/2: x(-z) is displayed
 const rotate_me = (rotate_x_angle, nudge_angle, nudge_amount) => {
@@ -123,10 +134,26 @@ const rotate_me = (rotate_x_angle, nudge_angle, nudge_amount) => {
 	return quat_to_mat(r, x, y, z);
 };
 
+// Change the matrix to apply a translation before the matrix transformation.
+// i.e. this does matrix = matrix * translation_matrix
+// this assumes matrix has [0, 0, 0, 1] as last line (i.e. no projection)
+const translate_matrix_before = (matrix, x, y, z) => {
+	// [a, b, c, x']   [1, 0, 0, x]   [a, b, c, ax + by + cz + x']
+	// [d, e, f, y'] * [0, 1, 0, y] = [d, e, f, dx + ey + fz + y']
+	// [g, h, j, z']   [0, 0, 1, z]   [g, h, j, gx + hy + jz + z']
+	// [0, 0, 0, 1 ]   [0, 0, 0, 1]   [0, 0, 0, 1]
+	// You're ENGINEERS ! You don't write fors, you UNROLL THAT LOOP !
+	// -- Teacher
+	const dot_me = l => l[3] += l[0] * x + l[1] * y + l[2] * z;
+	dot_me(matrix[0]);
+	dot_me(matrix[1]);
+	dot_me(matrix[2]);
+}
+
+// Change the matrix to apply a translation after the matrix transformation.
+// i.e. this does matrix = translation_matrix * matrix
+// this assumes matrix has [0, 0, 0, 1] as last line (i.e. no projection)
 const translate_matrix = (matrix, x, y, z) => {
-	// because multiplying with a translation matrix is too wasteful
-	// we multiply the translation on the left
-	// this assumes matrix has [0, 0, 0, 1] as last line (i.e. no proj)
 	// [1, 0, 0, x]   [a, b, c, x']   [a, b, c, x + x']
 	// [0, 1, 0, y] * [d, e, f, y'] = [d, e, f, y + y']
 	// [0, 0, 1, z]   [g, h, j, z']   [g, h, j, z + z']
@@ -183,22 +210,23 @@ const throw_at_wall = (fov, ratio, zmin, zmax) => {
 	//
 	// now, zmin must be mapped to -1 and zmax to 1
 	// this would have been simple, if it wasn't for the fact that z
-	// is ALSO divided by the fourth coordinate.
+	// is ALSO divided by the fourth coordinate, which is -z.
 	//
-	// so, zmin must be mapped to a value, which, when divided by zmin,
-	//     maps to -1... so zmin must map to -zmin
-	// and zmax must be mapped to a value, which, when divided by zmax,
-	//     maps to 1... so zmax must map to zmax
+	// so, zmin must be mapped to a value, which, when divided by -zmin,
+	//     maps to -1... so zmin must map to -(-zmin) = zmin
+	// and zmax must be mapped to a value, which, when divided by -zmax,
+	//     maps to 1... so zmax must map to -zmax
 	//
 	// a stupid affine function. zmax-zmin must be mapped to a difference
-	// of zmax - (-zmin), so multiply by (zmax + zmin)/(zmax-zmin)
-	const divisor = 1/(zmax-zmin);
+	// of -zmax - zmin, so multiply by -(zmax + zmin)/(zmax - zmin)
+	// aka (zmax + zmin)/(zmin - zmax)
+	const divisor = 1/(zmin-zmax);
 	//
-	// and zmax must still map to zmax, but now it maps to
-	// zmax * (zmax + zmin)/(zmax-zmin), so just add
-	// zmax - zmax * (zmax + zmin)/(zmax-zmin) to the result
-	// = (zmax² - zmin *zmax - zmax² - zmax*zmin)/(zmax-zmin)
-	// = -2 zmin*zmax / (zmax-zmin)
+	// and zmax must still map to -zmax, but now it maps to
+	// zmax * (zmax + zmin)/(zmin-zmax), so just add
+	// -zmax - zmax * (zmax + zmin)/(zmin-zmax) to the result
+	// = (-zmin * zmax + zmax² - zmax² - zmax * zmin)/(zmin-zmax)
+	// = -2 zmin*zmax / (zmin-zmax)
 	return [
 		[taninverse, 0, 0, 0],
 		[0, -ratio*taninverse, 0, 0],
@@ -321,7 +349,7 @@ class BobGeo {
 		const left = tile_x_pos / total_width;
 		const right = left + tile_size / total_width;
 		const top_ = tile_y_pos / total_height;
-		const bottom = top_ + tile_size / total_width;
+		const bottom = top_ + tile_size / total_height;
 		//console.assert(left >= 0 && right <= 1);
 		//console.assert(top_ >= 0 && bottom <= 1);
 		return { topleft: [ left, top_ ],
@@ -458,6 +486,7 @@ class BobMap {
 		};
 		
 		const handle_one_map_tiles = (map, z) => {
+			const tilesize = map.tilesize;
 			const width = map.tiles.width;
 			const height = map.tiles.height;
 			const tiles_per_line = width / map.tilesize;
@@ -469,8 +498,9 @@ class BobMap {
 				line.forEach((tile, x) => {
 					if (!tile)
 						return;
-					handle_tile(x, y, z, tile - 1,
-						    map.tilesize,
+					handle_tile(x * tilesize, y * tilesize,
+						    z, tile - 1,
+						    tilesize,
 						    tiles_per_line,
 						    tiles_per_col);
 				});
@@ -485,8 +515,8 @@ class BobMap {
 		const tex_trove = this.texture_trove;
 
 		// iterate from front to back, for crummy performance reasons.
-		forEachBackward(ig.game.levels, level => {
-			forEachBackward(level.maps, map => {
+		forEachBackward(ig.game.levels, (level,levelno) => {
+			forEachBackward(level.maps, (map, mapno) => {
 				if (map.tiles.path !== current_texture.path) {
 					// past-the-end, actually.
 					current_texture.size
@@ -517,9 +547,10 @@ class BobRender {
 		this.nudge_angle = 0;
 		this.nudge_intensity = 0;
 		// FIXME: this should vary over time
-		this.proj_matrix = throw_at_wall(Math.PI*0.5, 4/3, -1, -300);
-		this.debugshift = { x:0, y:0, z:0 };
+		this.proj_matrix = throw_at_wall(Math.PI*0.5, 4/3, -20, -300);
 		this.rotate = Math.PI / 4;
+		// for debugging.
+		this.debugshift = { x:0, y:0, z:0 };
 	}
 
 	setup_canvas(canvas) {
@@ -585,7 +616,7 @@ class BobRender {
 			return;
 		}
 		if (ig.game.mapRenderingBlocked || ig.loading
-		    || !(ig.game.maxLevel > 0)) 
+		    || !(ig.game.maxLevel > 0))
 			return;
 
 		this.map.render();
@@ -621,19 +652,23 @@ class BobRender {
 		if (!this.context)
 			return;
 
-		// FIXME: need to translate BEFORE THE ROTATION.
-		// you IDIOT !
-		// the only translation after the rotation is for the GODDAMN
-		// CAMERA WHICH IS ALREADY LOOKING AT 0.0 !
-		// which is why you put the center of the screen at 0,0
 		const view_matrix = rotate_me(this.rotate, this.nudge_angle,
 					      this.nudge_intensity);
+
+		const centerx = ig.game.screen.x + 570 / 2;
+		const centery = ig.game.screen.y + 320 / 2;
+		let centerz = 0;
+		if (ig.game.playerEntity)
+			centerz = ig.game.playerEntity.coll.pos.z;
+		// move center of screen at (0,0,0)
+		translate_matrix_before(view_matrix,
+					-centerx + this.debugshift.x,
+					-centery + this.debugshift.y,
+					-centerz + this.debugshift.z);
 		translate_matrix(view_matrix,
-				 this.debugshift.x -ig.game.screen.x +570/2,
-				 // FIXME: move also in y, or else, you're not
-				 // looking at 0,0,0
-				 this.debugshift.y -ig.game.screen.y +320/2,
-				 this.debugshift.z-200);
+				 0,
+				 0,
+				 -100);
 
 		const mulled = mulmat(this.proj_matrix, view_matrix);
 		stuff_matrix_to_uniform(this.context,
