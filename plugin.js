@@ -339,30 +339,69 @@ class TextureTrove {
 
 // Geometry helpers
 class BobGeo {
-	static make_quad_vertex(basex, basey, basez, quad_type, shift) {
-		const do_vertex = (shiftx, shifty, shiftz) =>
-			[basex + shiftx, basey + shifty, basez + shiftz];
-
+	static _quad_horizontal(x, y, z, shift_x, shift_y) {
+		return [ x + shift_x, y - shift_y, z];
+	}
+	static _quad_vertical(x, y, z, shift_x, shift_y) {
+		return [ x + shift_x, y, z + shift_y];
+	}
+	static make_quad_raw(x, y, z, quad_type, coords) {
+		const ret = {};
+		let transform;
 		switch (quad_type) {
 		case "horizontal":
-			return { topleft: do_vertex(0, -shift, 0),
-				 topright: do_vertex(shift, -shift, 0),
-				 bottomleft: do_vertex(0, 0, 0),
-				 bottomright: do_vertex(shift, 0, 0) };
+			transform = BobGeo._quad_horizontal.bind(null, x, y, z);
+			break;
 		case "vertical":
-			return { topleft: do_vertex(0, 0, shift),
-				 topright: do_vertex(shift, 0, shift),
-				 bottomleft: do_vertex(0, 0, 0),
-				 bottomright: do_vertex(shift, 0, 0) };
+			transform = BobGeo._quad_vertical.bind(null, x, y, z);
+			break;
+		default:
+			throw "unknown quad type";
 		}
-		throw "unknown quad type";
+		for (const pos in coords)
+			ret[pos] = transform(coords[pos][0], coords[pos][1]);
+		return ret;
+	}
+	static make_quad_vertex(basex, basey, basez, quad_type,
+				shift_x, shift_y) {
+		// base is ... low x, high y, low z. good ?
+		return BobGeo.
+			make_quad_raw(basex, basey, basez, quad_type,
+				      { topleft: [ 0, shift_y ],
+					topright: [ shift_x, shift_y ],
+					bottomleft: [ 0, 0 ],
+					bottomright: [ shift_x, 0] });
+	}
+	static make_rotated_quad_vertex(base, quad_type, shift,
+					pivot, rotation) {
+		const cosine = Math.cos(rotation);
+		const sine = Math.sin(rotation);
+		const rotate_mat = [
+			[ cosine, -sine ],
+			[ sine, cosine ]
+		];
+		const pivot_shift =
+			// shift pivot to (0,0), rotate, then shift to pivot
+			// essentially calculates the trans matrix 3rd column
+			addvec(pivot, mulvec(rotate_mat, pivot.map(x => -x)));
+
+		const topleft = pivot_shift;
+		const left_to_right_shift = mulvec(rotate_mat, [shift[0], 0]);
+		const top_to_bottom_shift = mulvec(rotate_mat, [0, shift[1]]);
+		const topright = addvec(topleft, left_to_right_shift);
+		const bottomleft = addvec(topleft, top_to_bottom_shift);
+		const bottomright = addvec(bottomleft, left_to_right_shift);
+
+		return BobGeo.make_quad_raw(...base, quad_type,
+					    { topleft, topright,
+					      bottomleft, bottomright});
 	}
 	static make_quad_tex(tile_x_pos, tile_y_pos, total_width, total_height,
-			     tile_size) {
+			     tile_size_x, tile_size_y) {
 		const left = tile_x_pos / total_width;
-		const right = left + tile_size / total_width;
+		const right = left + tile_size_x / total_width;
 		const top_ = tile_y_pos / total_height;
-		const bottom = top_ + tile_size / total_height;
+		const bottom = top_ + tile_size_y / total_height;
 		//console.assert(left >= 0 && right <= 1);
 		//console.assert(top_ >= 0 && bottom <= 1);
 		return { topleft: [ left, top_ ],
@@ -378,7 +417,7 @@ class BobGeo {
 		//
 		// top left, bottom right, bottom left
 		// top left, top right, bottom right
-	
+
 		for (const pos of ["topleft", "bottomright", "bottomleft",
 				   "topleft", "topright", "bottomright"])
 			for (const quad of quads)
@@ -387,7 +426,6 @@ class BobGeo {
 
 	/*
 	static make_triangle(basex, basey, basez, quad_type, triangles, shift) {
-		// base is ... low x, high y, low z. good ?
 		// clockwise:
 		//
 		// top left, bottom right, bottom left
@@ -475,15 +513,17 @@ class BobMap {
 				     tiles_per_line, tiles_per_col) => {
 			const tile_type = /* magic ...*/ "horizontal";
 
+			// make_quad_vertex want high y
 			const quad_vertex
-				= BobGeo.make_quad_vertex(x, y, z, tile_type,
-							  tile_size);
+				= BobGeo.make_quad_vertex(x, y + tile_size,
+							  z, tile_type,
+							  tile_size, tile_size);
 
 			/*
 			BobGeo.make_triangle(x, y, z, tile_type,
 					     everything,
 					     tile_size);*/
-			
+
 			const true_tiles_per_line = Math.floor(tiles_per_line);
 			const tile_x = tileno % true_tiles_per_line;
 			const tile_y = Math.floor(tileno / true_tiles_per_line);
@@ -491,13 +531,13 @@ class BobMap {
 			const quad_st_coord
 				= BobGeo.make_quad_tex(tile_x, tile_y,
 						       tiles_per_line,
-						       tiles_per_col, 1);
+						       tiles_per_col, 1, 1);
 			BobGeo.interleave_triangles(everything,
 						    quad_vertex, quad_st_coord);
 			// 6 things were added by interleave_triangles().
 			i+=6;
 		};
-		
+
 		const handle_one_map_tiles = (map, z) => {
 			const tilesize = map.tilesize;
 			const width = map.tiles.width;
