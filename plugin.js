@@ -560,10 +560,16 @@ class BobMap extends BobRenderable {
 
 			// high y values are closer to you...
 			forEachBackward(map.data, (line, y) => {
+				// while the tile at map.data[0][0] height 0
+				// stores (0,0,0), the tile at map.data[0][0]
+				// height z is rendered at the same place in 2d
+				// space.  This mean that its actual coordinate
+				// is (0, z, z).
+				const shifted_y = y * tilesize + z;
 				line.forEach((tile, x) => {
 					if (!tile)
 						return;
-					handle_tile(x * tilesize, y * tilesize,
+					handle_tile(x * tilesize, shifted_y,
 						    z, tile - 1,
 						    tilesize,
 						    tiles_per_line,
