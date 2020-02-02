@@ -660,12 +660,20 @@ class BobEntities extends BobRenderable {
 		let sizex
 			= cs.size.x - cs.gfxCut.right - cs.gfxCut.left;
 		let sizey;
-		if (ground)
+
+		// yes, there are wall sprites with cs.wallY = cs.size.y.
+		// Even if i think they should really be ground sprites.
+		// (this includes sweeps)
+
+		if (cs.wallY >= cs.size.y)
+			// apply default
+			sizey = cs.size.y + cs.size.z;
+		else if (ground)
 			// amputate wallY from ground
 			sizey = cs.size.y - cs.wallY;
 		else if (!cs.mergeTop) {
 			// remove the ground part
-			offsety = cs.sizey - cs.wallY;
+			offsety = cs.size.y - cs.wallY;
 			// sizey = size.y + size.z - offsety
 			sizey = cs.size.z - cs.wallY;
 		} else
@@ -706,6 +714,8 @@ class BobEntities extends BobRenderable {
 		offsetx += cubesprite.src.x;
 		offsety += cubesprite.src.y;
 
+		console.assert(!isNaN(offsetx) && !isNaN(offsety)
+			       && !isNaN(sizex) && !isNaN(sizey));
 		const image = cubesprite.image;
 
 		crop.quad_tex = BobGeo.make_quad_tex(offsetx, offsety,
@@ -719,9 +729,14 @@ class BobEntities extends BobRenderable {
 
 		const do_sprite = sprite => {
 			const cs = sprite.cubeSprite;
+			let is_ground = sprite.ground;
+			// i have some reserves on how the game classify ground
+			// sprites from wall sprites.
+			if (!cs.size.z)
+				is_ground = true;
 
-			const src = BobEntities.get_src_quad_tex(cs,
-								 sprite.ground);
+
+			const src = BobEntities.get_src_quad_tex(cs, is_ground);
 			if (!src)
 				return; // nothing to do here.
 
@@ -750,7 +765,7 @@ class BobEntities extends BobRenderable {
 				z += cs.gfxCut.bottom;
 			}
 			const quad_type
-				= sprite.ground ? "horizontal" : "vertical";
+				= is_ground ? "horizontal" : "vertical";
 			let quad_vertex;
 			//if (cs.rotate)
 			quad_vertex
