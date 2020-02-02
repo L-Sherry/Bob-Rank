@@ -114,12 +114,15 @@ const mulmat = (mat1, mat2) => mat1.map(
 
 const mulvec = (mat, vec) =>
 	mat.map(l => l.reduce((a,v,i)=> a + v * vec[i],0));
+
+const addvec = (vec1, vec2) => vec1.map((v, i) => v + vec2[i]);
+
 const mulvecnorm = (mat, vec) => {
 	const mulled = mulvec(mat, vec);
 	return [mulled[0] / mulled[3],
 		mulled[1] / mulled[3],
 		mulled[2] / mulled[3]];
-}
+};
 window.mulvecnorm = mulvecnorm;
 
 // rotate_x_angle = 0 -> xy plane is dislayed, pi/2: x(-z) is displayed
@@ -155,7 +158,7 @@ const translate_matrix_before = (matrix, x, y, z) => {
 	dot_me(matrix[0]);
 	dot_me(matrix[1]);
 	dot_me(matrix[2]);
-}
+};
 
 // Change the matrix to apply a translation after the matrix transformation.
 // i.e. this does matrix = translation_matrix * matrix
