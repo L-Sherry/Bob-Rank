@@ -51,15 +51,22 @@ const extractlocations = (context, program, attribs, globals) => {
 	return ret;
 };
 
-// Fill a mostly-constant buffer.
-const fill_const_buffer = (context, buffer, data) => {
+// Fill a buffer
+const fill_buffer = (context, buffer, data, how) => {
 	console.assert(buffer !== undefined && data);
 	if (data.constructor !== Float32Array)
 		data = new Float32Array(data);
 	// where are my display lists ?
 	context.bindBuffer(context.ARRAY_BUFFER, buffer);
-	context.bufferData(context.ARRAY_BUFFER, data, context.STATIC_DRAW);
+	context.bufferData(context.ARRAY_BUFFER, data, how);
 };
+
+// Fill a mostly-constant buffer.
+const fill_const_buffer = (context, buffer, data) =>
+	fill_buffer(context, buffer, data, context.STATIC_DRAW);
+// Fill a buffer used once or almost once
+const fill_dynamic_buffer = (context, buffer, data) =>
+	fill_buffer(context, buffer, data, context.DYNAMIC_DRAW);
 
 const select_buffer = (context, buffer) => {
 	console.assert(buffer !== undefined);
