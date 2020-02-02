@@ -313,9 +313,12 @@ class TextureTrove {
 	// add and mark as wanted.
 	add(path, image) {
 		this._wanted.add(path);
-		if (path in this._textures)
-			return;
-		this._textures[path] = create_texture(this._context, image);
+		let texture = this._textures[path];
+		if (texture === undefined) {
+			texture = create_texture(this._context, image);
+			this._textures[path] = texture;
+		}
+		return texture;
 	}
 	get(path) {
 		const ret = this._textures[path];
