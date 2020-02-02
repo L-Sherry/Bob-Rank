@@ -618,6 +618,29 @@ class BobMap extends BobRenderable {
 	}
 }
 
+// The first of many.
+const path_overrides = {
+	media: {
+		entity: {
+			effects: {
+				"lighter-particle.png": "ground",
+				"lighter-particle-big.png": "ground"
+			}
+		}
+	}
+};
+
+const walk_break_on_first = (object, path) => {
+	for (const component of path)
+		if (object[component])
+			object = object[component];
+		else if (object instanceof String)
+			return object;
+		else
+			return null;
+	return object;
+};
+
 class BobEntities extends BobRenderable {
 	constructor(context, vertex_location, text_coord_location) {
 		super(context, vertex_location, text_coord_location);
@@ -625,6 +648,19 @@ class BobEntities extends BobRenderable {
 	clear() {
 		this.sprites_by_texture = {};
 		this.textures_ranges.length = 0;
+	}
+	static do_overrides(cubesprite) {
+		// I have LOADS of reserves on how the game classify ground
+		// and wall sprites.
+		// i will list them ALL HERE ! MUAHAHAHA !
+		const path = cubesprite.image.path.split("/");
+		const override = walk_break_on_first(path_overrides, path);
+		if (override)
+			return override; // for now.
+
+		if (!cubesprite.size.z)
+			return "ground";
+		return null;
 	}
 	prepare_sprites(spritearray) {
 		const tex_trove = this.texture_trove;
@@ -634,7 +670,7 @@ class BobEntities extends BobRenderable {
 			if (!(image && image.path && image.data)) {
 				// FIXME: ImageCanvasWrapper will be hard to
 				// cache... but it's the majority of sprites ?
-				if ((!image instanceof ig.ImageCanvasWrapper))
+				if (!(image instanceof ig.ImageCanvasWrapper))
 					console.log("strange sprite");
 				continue;
 			}
@@ -734,9 +770,14 @@ class BobEntities extends BobRenderable {
 			let is_ground = sprite.ground;
 			// i have some reserves on how the game classify ground
 			// sprites from wall sprites.
-			if (!cs.size.z)
+			switch (BobEntities.do_overrides(cs)) {
+			case "ground":
 				is_ground = true;
-
+				break;
+			case "wall":
+				is_ground = false;
+				break;
+			}
 
 			const src = BobEntities.get_src_quad_tex(cs, is_ground);
 			if (!src)
