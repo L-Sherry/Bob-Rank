@@ -420,8 +420,10 @@ class BobGeo {
 
 		for (const pos of ["topleft", "bottomright", "bottomleft",
 				   "topleft", "topright", "bottomright"])
-			for (const quad of quads)
+			for (const quad of quads) {
+				console.assert(!isNaN(quad[pos][0]));
 				destination.push(...quad[pos]);
+			}
 	}
 
 	/*
@@ -495,6 +497,8 @@ class BobRenderable {
 				  5, 3);
 
 		for (const textrange of this.textures_ranges) {
+			console.assert(textrange.texture && textrange.size
+				       && textrange.start !== undefined);
 			assign_texture(this.context, textrange.texture);
 			draw_triangles(this.context, textrange.start,
 				       textrange.size);
@@ -588,7 +592,12 @@ class BobMap extends BobRenderable {
 					const img = map.tiles.data;
 					tex_trove.add(map.tiles.path, img);
 				}
-				handle_one_map_tiles(map, level.height);
+				// The Z Fighting War has begun.
+				// Only the strongest will survive.
+				// Which mean, not you. Sorry, map.
+				// but entities are stronger than you and must
+				// be displayed on top of you.
+				handle_one_map_tiles(map, level.height - 0.5);
 			});
 		}, ig.game.maxLevel - 1);
 		current_texture.size = i - current_texture.start;
@@ -635,56 +644,78 @@ class BobEntities extends BobRenderable {
 			textureinfo.sprites.push(sprite);
 		}
 	}
+	// get a cubeSprite's source crops.
+	// replicate the dreaded calculation of SpriteDrawSlot.draw()
+	// without the z clippin' part
+	static get_2d_src_crop(cubesprite, ground) {
+		const cs = cubesprite;
+		let offsetx = cs.gfxCut.left;
+		let offsety = 0;
+		let sizex
+			= cs.size.x - cs.gfxCut.right - cs.gfxCut.left;
+		let sizey;
+		if (ground)
+			// amputate wallY from ground
+			sizey = cs.size.y - cs.wallY;
+		else if (!cs.mergeTop) {
+			// remove the ground part
+			offsety = cs.sizey - cs.wallY;
+			// sizey = size.y + size.z - offsety
+			sizey = cs.size.z - cs.wallY;
+		} else
+			sizey = cs.size.y + cs.size.z;
+
+		offsety = Math.max(cs.gfxCut.top, offsety);
+		if (cs.gfxCut.bottom)
+			sizey = Math.min(sizex,
+					 cs.size.y + cs.size.z
+					 - cs.gfxCut.bottom);
+		if (cs.flip.x)
+			// basically, gfxCut.left and gfxCut.right
+			// happens after flipping.
+			// basically, we should swap them
+			offsetx = cs.gfxCut.right;
+
+		if (sizex <= 0 || sizey <= 0
+		    || !cs.scale.x
+		    || !cs.scale.y
+		    || !cs.alpha)
+			return null;
+
+		return { offsetx, offsety, sizex, sizey };
+	}
+	static get_src_quad_tex(cubesprite, ground) {
+		const crop = BobEntities.get_2d_src_crop(cubesprite, ground);
+		if (!crop)
+			return null;
+		let {offsetx, offsety, sizex, sizey } = crop;
+		if (cubesprite.flip.x) {
+			offsetx += sizex;
+			sizex = -sizex;
+		}
+		if (cubesprite.flip.y) {
+			offsety += sizey;
+			sizey = -sizey;
+		}
+		offsetx += cubesprite.src.x;
+		offsety += cubesprite.src.y;
+
+		const image = cubesprite.image;
+
+		crop.quad_tex = BobGeo.make_quad_tex(offsetx, offsety,
+						     image.width, image.height,
+						     sizex, sizey);
+		return crop;
+	}
 	finalize_sprites() {
 		const everything = [];
 		let i = 0;
 
-		// replicate the dreaded calculation of SpriteDrawSlot.draw()
-		// without the z clippin' part
-		const get_2d_src = (cs, ground) => {
-			let offsetx = cs.gfxCut.left;
-			let offsety = 0;
-			let sizex
-				= cs.size.x - cs.gfxCut.right - cs.gfxCut.left;
-			let sizey;
-			if (ground)
-				// amputate wallY from ground
-				sizey = cs.size.y - cs.wallY;
-			else if (!cs.mergeTop) {
-				// remove the ground part
-				offsety = cs.sizey - cs.wallY;
-				// sizey = size.y + size.z - offsety
-				sizey = cs.size.z - cs.wallY;
-			} else
-				sizey = cs.size.y + cs.size.z;
-
-			offsety = Math.max(cs.gfxCut.top, offsety);
-			if (cs.gfxCut.bottom)
-				sizey = Math.min(sizex,
-						 cs.size.y + cs.size.z
-						 - cs.gfxCut.bottom);
-			if (cs.flip.x)
-				// basically, gfxCut.left and gfxCut.right
-				// happens after flipping.
-				// basically, we should swap them
-				offsetx = cs.gfxCut.right;
-
-			if (sizex <= 0 || sizey <= 0
-			    || !cs.scale.x
-			    || !cs.scale.y
-			    || !cs.alpha)
-				return null;
-
-			offsetx += cs.src.x;
-			offsety += cs.src.y;
-
-			return { offsetx, offsety, sizex, sizey };
-		};
-
 		const do_sprite = sprite => {
 			const cs = sprite.cubeSprite;
 
-			const src = get_2d_src(cs, sprite.ground);
+			const src = BobEntities.get_src_quad_tex(cs,
+								 sprite.ground);
 			if (!src)
 				return; // nothing to do here.
 
@@ -712,24 +743,20 @@ class BobEntities extends BobRenderable {
 				// instead of substracting wallY to it.
 				z += cs.gfxCut.bottom;
 			}
+			const quad_type
+				= sprite.ground ? "horizontal" : "vertical";
 			let quad_vertex;
 			//if (cs.rotate)
 			quad_vertex
 				= BobGeo.make_rotated_quad_vertex(
-					[x, y, z], "horizontal",
+					[x, y, z], quad_type,
 					[src.sizex * cs.scale.x,
 					 src.sizey * cs.scale.y],
 					[cs.pivot.x || 0, cs.pivot.y || 0],
 					cs.rotate || 0);
 
-			const image = cs.image;
-			const quad_tex = BobGeo.make_quad_tex(
-				src.offsetx, src.offsety,
-				image.width, image.height,
-				src.sizex, src.sizey
-			);
 			BobGeo.interleave_triangles(everything,
-						    quad_vertex, quad_tex);
+						    quad_vertex, src.quad_tex);
 			i += 6;
 		};
 
