@@ -373,12 +373,12 @@ class BobGeo {
 					bottomright: [ shift_x, 0] });
 	}
 	static make_rotated_quad_vertex(base, quad_type, shift,
-					pivot, rotation) {
+					pivot, rotation, scale) {
 		const cosine = Math.cos(rotation);
 		const sine = Math.sin(rotation);
 		const rotate_mat = [
-			[ cosine, -sine ],
-			[ sine, cosine ]
+			[ scale[0] * cosine, -scale[0] * sine ],
+			[ scale[1] * sine, scale[1] * cosine ]
 		];
 		const pivot_shift =
 			// shift pivot to (0,0), rotate, then shift to pivot
@@ -746,7 +746,7 @@ class BobEntities extends BobRenderable {
 			let y = cs.pos.y + cs.tmpOffset.y + cs.gfxOffset.y +
 				cs.size.y;
 			let z = cs.pos.z + cs.tmpOffset.z;
-			if (sprite.ground) {
+			if (is_ground) {
 				// the ground part is the top of the sprite.
 				z += cs.size.z;
 				// if sprite is cut from the bottom, then
@@ -771,10 +771,10 @@ class BobEntities extends BobRenderable {
 			quad_vertex
 				= BobGeo.make_rotated_quad_vertex(
 					[x, y, z], quad_type,
-					[src.sizex * cs.scale.x,
-					 src.sizey * cs.scale.y],
+					[src.sizex, src.sizey],
 					[cs.pivot.x || 0, cs.pivot.y || 0],
-					cs.rotate || 0);
+					cs.rotate || 0,
+					[cs.scale.x, cs.scale.y]);
 
 			BobGeo.interleave_triangles(everything,
 						    quad_vertex, src.quad_tex);
