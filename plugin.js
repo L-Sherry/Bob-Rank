@@ -607,6 +607,7 @@ class BobEntities extends BobRenderable {
 	}
 	clear() {
 		this.sprites_by_texture = {};
+		this.textures_ranges.length = 0;
 	}
 	prepare_sprites(spritearray) {
 		const tex_trove = this.texture_trove;
@@ -637,7 +638,6 @@ class BobEntities extends BobRenderable {
 	finalize_sprites() {
 		const everything = [];
 		let i = 0;
-		let current_texture = {start:-42};
 
 		// replicate the dreaded calculation of SpriteDrawSlot.draw()
 		// without the z clippin' part
@@ -689,11 +689,11 @@ class BobEntities extends BobRenderable {
 				return; // nothing to do here.
 
 			// BobGeo want low x, high y, low z
-			let x = cs.x + cs.tmpOffset.x + cs.gfxOffset.x
-					+ cs.gfxCut.left;
-			let y = cs.y + cs.tmpOffset.y + cs.gfxOffset.y
-					+ cs.size.y;
-			let z = cs.z + cs.tmpOffset.z;
+			let x = cs.pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
+				cs.gfxCut.left;
+			let y = cs.pos.y + cs.tmpOffset.y + cs.gfxOffset.y +
+				cs.size.y;
+			let z = cs.pos.z + cs.tmpOffset.z;
 			if (sprite.ground) {
 				// the ground part is the top of the sprite.
 				z += cs.size.z;
@@ -736,11 +736,19 @@ class BobEntities extends BobRenderable {
 
 		for (const path in this.sprites_by_texture) {
 			const texture = this.sprites_by_texture[path];
-			current_texture.size = i - current_texture.start;
-			current_texture = {texture: texture.texture, start: i};
+			const start_i = i;
 
 			for (const sprite of texture.sprites)
 				do_sprite(sprite);
+
+			if (i === start_i)
+				continue;
+
+			this.textures_ranges.push({
+				texture: texture.texture,
+				start: start_i,
+				size: i - start_i
+			});
 		}
 
 		fill_dynamic_buffer(this.context, this.buf, everything);
