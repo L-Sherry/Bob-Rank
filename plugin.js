@@ -870,7 +870,7 @@ class BobRender {
 		// from the horizontal fov, which is probably
 		// vfov = 2 * atan(ratio * tan(hfov/2))
 		const fov = Math.PI * 0.5;
-		this.proj_matrix = throw_at_wall(fov, ratio, -20, -300);
+		this.proj_matrix = throw_at_wall(fov, ratio, -20, -500);
 
 		this.context = webglplz(canvas);
 
@@ -995,7 +995,7 @@ class BobRender {
 		translate_matrix(view_matrix,
 				 0,
 				 0,
-				 -100);
+				 -200);
 
 		const mulled = mulmat(this.proj_matrix, view_matrix);
 		stuff_matrix_to_uniform(this.context,
