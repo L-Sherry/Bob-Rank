@@ -611,16 +611,28 @@ class BobRender {
 	constructor() {
 		this.context = null;
 		this.map = null;
+		// FIXME: this should vary over time
 		this.nudge_angle = 0;
 		this.nudge_intensity = 0;
-		// FIXME: this should vary over time
-		this.proj_matrix = throw_at_wall(Math.PI*0.5, 4/3, -20, -300);
 		this.rotate = Math.PI / 4;
 		// for debugging.
 		this.debugshift = { x:0, y:0, z:0 };
 	}
 
 	setup_canvas(canvas) {
+
+		const ratio = canvas.width / canvas.height;
+		// need a real reflection on fov:
+		// - don't want rotate - vertical fov/2 to be below 0, otherwise
+		// we will have to render the back of cubes
+		// - don't want rotate + vertical fov/2 to be above 90°,
+		// otherwise there will be black backgrounds to render.
+		// but that's the vertical fov, which needs to be calculated
+		// from the horizontal fov, which is probably
+		// vfov = 2 * atan(ratio * tan(hfov/2))
+		const fov = Math.PI * 0.5;
+		this.proj_matrix = throw_at_wall(fov, ratio, -20, -300);
+
 		this.context = webglplz(canvas);
 
 		this.vertexshader = compile_shader(this.context,
@@ -661,7 +673,7 @@ class BobRender {
 		// Assume that TEXTURE0 is the base color texture
 		this.context.uniform1i(this.locations.colorsampler, 0);
 		// note: TEXTURE0 is the default ACTIVE_TEXTURE.
-		
+
 		this.context.enable(this.context.DEPTH_TEST);
 		// isn't that the default ? ... no, the default is LESS
 		// ... and LESS might be a better idea later on, who knows ?
@@ -732,6 +744,7 @@ class BobRender {
 					-centerx + this.debugshift.x,
 					-centery + this.debugshift.y,
 					-centerz + this.debugshift.z);
+		// take the camera back by 100
 		translate_matrix(view_matrix,
 				 0,
 				 0,
@@ -774,9 +787,9 @@ export default class Mod extends Plugin {
 		ig.system.canvas.style.margin = "0px";
 
 		this.canvas3d = document.createElement("canvas");
-		this.canvas3d.width = 400;
-		this.canvas3d.height = 300;
-		this.canvas3d.style.marginTop = "500px";
+		this.canvas3d.width = 570;
+		this.canvas3d.height = 320;
+		this.canvas3d.style.marginTop = "320px";
 		document.getElementById("game").appendChild(this.canvas3d);
 
 		this.renderer.setup_canvas(this.canvas3d);
