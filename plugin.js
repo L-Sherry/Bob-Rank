@@ -365,6 +365,7 @@ class BobGeo {
 	static make_quad_vertex(basex, basey, basez, quad_type,
 				shift_x, shift_y) {
 		// base is ... low x, high y, low z. good ?
+		// in fact, it will be hard to do otherwise.
 		return BobGeo.
 			make_quad_raw(basex, basey, basez, quad_type,
 				      { topleft: [ 0, shift_y ],
@@ -385,12 +386,13 @@ class BobGeo {
 			// essentially calculates the trans matrix 3rd column
 			addvec(pivot, mulvec(rotate_mat, pivot.map(x => -x)));
 
-		const topleft = pivot_shift;
+		// remember bottomleft is at (0,0) due to make_quad_raw.
+		const bottomleft = pivot_shift;
 		const left_to_right_shift = mulvec(rotate_mat, [shift[0], 0]);
-		const top_to_bottom_shift = mulvec(rotate_mat, [0, shift[1]]);
-		const topright = addvec(topleft, left_to_right_shift);
-		const bottomleft = addvec(topleft, top_to_bottom_shift);
+		const bottom_to_top_shift = mulvec(rotate_mat, [0, shift[1]]);
 		const bottomright = addvec(bottomleft, left_to_right_shift);
+		const topleft = addvec(bottomleft, bottom_to_top_shift);
+		const topright = addvec(topleft, left_to_right_shift);
 
 		return BobGeo.make_quad_raw(...base, quad_type,
 					    { topleft, topright,
@@ -773,7 +775,7 @@ class BobEntities extends BobRenderable {
 					[x, y, z], quad_type,
 					[src.sizex, src.sizey],
 					[cs.pivot.x || 0, cs.pivot.y || 0],
-					cs.rotate || 0,
+					-cs.rotate || 0,
 					[cs.scale.x, cs.scale.y]);
 
 			BobGeo.interleave_triangles(everything,
