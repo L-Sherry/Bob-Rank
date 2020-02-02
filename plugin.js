@@ -607,6 +607,152 @@ class BobMap extends BobRenderable {
 	}
 }
 
+class BobEntities extends BobRenderable {
+	constructor(context, vertex_location, text_coord_location) {
+		super(context, vertex_location, text_coord_location);
+	}
+	clear() {
+		this.sprites_by_texture = {};
+	}
+	prepare_sprites(spritearray) {
+		const tex_trove = this.texture_trove;
+		const by_texture = this.sprites_by_texture;
+		for (const sprite of spritearray) {
+			const image = sprite.cubeSprite.image;
+			if (!(image && image.path && image.data)) {
+				// FIXME: ImageCanvasWrapper will be hard to
+				// cache... but it's the majority of sprites ?
+				if ((!image instanceof ig.ImageCanvasWrapper))
+					console.log("strange sprite");
+				continue;
+			}
+			const path = image.path;
+
+			let textureinfo = by_texture[path];
+			if (!textureinfo) {
+				const img = image.data;
+				const texture = tex_trove.add(path, img);
+				textureinfo = by_texture[path] = {
+					texture,
+					sprites: []
+				};
+			}
+			textureinfo.sprites.push(sprite);
+		}
+	}
+	finalize_sprites() {
+		const everything = [];
+		let i = 0;
+		let current_texture = {start:-42};
+
+		// replicate the dreaded calculation of SpriteDrawSlot.draw()
+		// without the z clippin' part
+		const get_2d_src = (cs, ground) => {
+			let offsetx = cs.gfxCut.left;
+			let offsety = 0;
+			let sizex
+				= cs.size.x - cs.gfxCut.right - cs.gfxCut.left;
+			let sizey;
+			if (ground)
+				// amputate wallY from ground
+				sizey = cs.size.y - cs.wallY;
+			else if (!cs.mergeTop) {
+				// remove the ground part
+				offsety = cs.sizey - cs.wallY;
+				// sizey = size.y + size.z - offsety
+				sizey = cs.size.z - cs.wallY;
+			} else
+				sizey = cs.size.y + cs.size.z;
+
+			offsety = Math.max(cs.gfxCut.top, offsety);
+			if (cs.gfxCut.bottom)
+				sizey = Math.min(sizex,
+						 cs.size.y + cs.size.z
+						 - cs.gfxCut.bottom);
+			if (cs.flip.x)
+				// basically, gfxCut.left and gfxCut.right
+				// happens after flipping.
+				// basically, we should swap them
+				offsetx = cs.gfxCut.right;
+
+			if (sizex <= 0 || sizey <= 0
+			    || !cs.scale.x
+			    || !cs.scale.y
+			    || !cs.alpha)
+				return null;
+
+			offsetx += cs.src.x;
+			offsety += cs.src.y;
+
+			return { offsetx, offsety, sizex, sizey };
+		};
+
+		const do_sprite = sprite => {
+			const cs = sprite.cubeSprite;
+
+			const src = get_2d_src(cs, sprite.ground);
+			if (!src)
+				return; // nothing to do here.
+
+			// BobGeo want low x, high y, low z
+			let x = cs.x + cs.tmpOffset.x + cs.gfxOffset.x
+					+ cs.gfxCut.left;
+			let y = cs.y + cs.tmpOffset.y + cs.gfxOffset.y
+					+ cs.size.y;
+			let z = cs.z + cs.tmpOffset.z;
+			if (sprite.ground) {
+				// the ground part is the top of the sprite.
+				z += cs.size.z;
+				// if sprite is cut from the bottom, then
+				// cut the 'bottom' of our ground.
+				y -= cs.gfxCut.bottom;
+			} else {
+				// set y to yIndex.
+				y -= cs.wallY;
+				// we have a problems with wallY.
+				// if wallY is non zero, then we must be able
+				// to render things 'below the ground'
+				// we can't do that. so we just raise everything
+				// up. what could possibly go wrong ?
+				// this is done by doing nothing to z,
+				// instead of substracting wallY to it.
+				z += cs.gfxCut.bottom;
+			}
+			let quad_vertex;
+			//if (cs.rotate)
+			quad_vertex
+				= BobGeo.make_rotated_quad_vertex(
+					[x, y, z], "horizontal",
+					[src.sizex * cs.scale.x,
+					 src.sizey * cs.scale.y],
+					[cs.pivot.x || 0, cs.pivot.y || 0],
+					cs.rotate || 0);
+
+			const image = cs.image;
+			const quad_tex = BobGeo.make_quad_tex(
+				src.offsetx, src.offsety,
+				image.width, image.height,
+				src.sizex, src.sizey
+			);
+			BobGeo.interleave_triangles(everything,
+						    quad_vertex, quad_tex);
+			i += 6;
+		};
+
+
+		for (const path in this.sprites_by_texture) {
+			const texture = this.sprites_by_texture[path];
+			current_texture.size = i - current_texture.start;
+			current_texture = {texture: texture.texture, start: i};
+
+			for (const sprite of texture.sprites)
+				do_sprite(sprite);
+		}
+
+		fill_dynamic_buffer(this.context, this.buf, everything);
+	}
+}
+
 class BobRender {
 	constructor() {
 		this.context = null;
@@ -686,6 +832,9 @@ class BobRender {
 
 		this.map = new BobMap(this.context, this.locations.pos,
 				      this.locations.texcoord);
+		this.entities = new BobEntities(this.context,
+						this.locations.pos,
+						this.locations.texcoord);
 	}
 
 	draw_layerz (parent) {
@@ -698,7 +847,12 @@ class BobRender {
 		    || !(ig.game.maxLevel > 0))
 			return;
 
+		this.entities.clear();
+		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
+		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
+		this.entities.finalize_sprites();
 		this.map.render();
+		this.entities.render();
 	}
 
 	bind_to_game() {
