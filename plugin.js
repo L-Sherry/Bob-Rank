@@ -476,7 +476,7 @@ class BobGeo {
 	}*/
 }
 
-class BobMap {
+class BobRenderable {
 	constructor(context, vertex_location, text_coord_location) {
 		this.context = context;
 		this.vertex_location = vertex_location;
@@ -485,7 +485,8 @@ class BobMap {
 		this.buf = context.createBuffer();
 		this.textures_ranges = [];
 	}
-	render () {
+
+	render() {
 		select_buffer(this.context, this.buf);
 		// three floats for the position, two floats for texture pos
 		// total = 5
@@ -499,7 +500,14 @@ class BobMap {
 				       textrange.size);
 		}
 	}
-	steal_map () {
+}
+
+
+class BobMap extends BobRenderable {
+	constructor(context, vertex_location, text_coord_location) {
+		super(context, vertex_location, text_coord_location);
+	}
+	steal_map() {
 		// AAHHHH where are my quads ? they take away my display lists,
 		// and now they take away my quads too ?
 		// i have to do TRIANGLES ? TRIANGLES SUCKS ! QUADROGUARD FTW !
