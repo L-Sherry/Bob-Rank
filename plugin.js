@@ -339,21 +339,24 @@ class TextureTrove {
 
 // Geometry helpers
 class BobGeo {
-	static _quad_horizontal(x, y, z, shift_x, shift_y) {
-		return [ x + shift_x, y - shift_y, z];
+	static _quad_horizontal(x, y, z, size_x, size_y, shift_x, shift_y) {
+		return [ x + shift_x, y + shift_y - size_y, z];
 	}
-	static _quad_vertical(x, y, z, shift_x, shift_y) {
-		return [ x + shift_x, y, z + shift_y];
+	static _quad_vertical(x, y, z, size_x, size_y, shift_x, shift_y) {
+		return [ x + shift_x, y, z + size_y - shift_y];
 	}
-	static make_quad_raw(x, y, z, quad_type, coords) {
+	static make_quad_raw(x, y, z, quad_type, size_x, size_y, coords) {
 		const ret = {};
 		let transform;
 		switch (quad_type) {
 		case "horizontal":
-			transform = BobGeo._quad_horizontal.bind(null, x, y, z);
+			transform = BobGeo._quad_horizontal.bind(null, x, y, z,
+								 size_x,
+								 size_y);
 			break;
 		case "vertical":
-			transform = BobGeo._quad_vertical.bind(null, x, y, z);
+			transform = BobGeo._quad_vertical.bind(null, x, y, z,
+							       size_x, size_y);
 			break;
 		default:
 			throw "unknown quad type";
@@ -363,23 +366,25 @@ class BobGeo {
 		return ret;
 	}
 	static make_quad_vertex(basex, basey, basez, quad_type,
-				shift_x, shift_y) {
+				size_x, size_y) {
 		// base is ... low x, high y, low z. good ?
 		// in fact, it will be hard to do otherwise.
 		return BobGeo.
 			make_quad_raw(basex, basey, basez, quad_type,
-				      { topleft: [ 0, shift_y ],
-					topright: [ shift_x, shift_y ],
-					bottomleft: [ 0, 0 ],
-					bottomright: [ shift_x, 0] });
+				      size_x, size_y,
+				      { topleft: [ 0, 0 ],
+					topright: [ size_x, 0 ],
+					bottomleft: [ 0, size_y ],
+					bottomright: [ size_x, size_y] });
 	}
-	static make_rotated_quad_vertex(base, quad_type, shift,
+	static make_rotated_quad_vertex(base, quad_type, size,
 					pivot, rotation, scale) {
+		// rotation interferes with the fact that bottomleft is 0 ?
 		const cosine = Math.cos(rotation);
 		const sine = Math.sin(rotation);
-		const rotate_mat = [
-			[ scale[0] * cosine, -scale[0] * sine ],
-			[ scale[1] * sine, scale[1] * cosine ]
+		const rotate_mat = [ // scaling applied before rotation
+			[ scale[0] * cosine, -scale[1] * sine ],
+			[ scale[0] * sine, scale[1] * cosine ]
 		];
 		const pivot_shift =
 			// shift pivot to (0,0), rotate, then shift to pivot
@@ -387,14 +392,16 @@ class BobGeo {
 			addvec(pivot, mulvec(rotate_mat, pivot.map(x => -x)));
 
 		// remember bottomleft is at (0,0) due to make_quad_raw.
-		const bottomleft = pivot_shift;
-		const left_to_right_shift = mulvec(rotate_mat, [shift[0], 0]);
-		const bottom_to_top_shift = mulvec(rotate_mat, [0, shift[1]]);
-		const bottomright = addvec(bottomleft, left_to_right_shift);
-		const topleft = addvec(bottomleft, bottom_to_top_shift);
+		// how about "bullshit"
+		const topleft = pivot_shift;
+		const left_to_right_shift = mulvec(rotate_mat, [size[0], 0]);
+		const top_to_bottom_shift = mulvec(rotate_mat, [0, size[1]]);
 		const topright = addvec(topleft, left_to_right_shift);
+		const bottomleft = addvec(topleft, top_to_bottom_shift);
+		const bottomright = addvec(bottomleft, left_to_right_shift);
 
 		return BobGeo.make_quad_raw(...base, quad_type,
+					    size[0], size[1],
 					    { topleft, topright,
 					      bottomleft, bottomright});
 	}
@@ -786,8 +793,8 @@ class BobEntities extends BobRenderable {
 			// BobGeo want low x, high y, low z
 			let x = cs.pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
 				cs.gfxCut.left;
-			let y = cs.pos.y + cs.tmpOffset.y + cs.gfxOffset.y +
-				cs.size.y;
+			let y = cs.pos.y + cs.tmpOffset.y + cs.size.y
+					 + cs.gfxOffset.y
 			let z = cs.pos.z + cs.tmpOffset.z;
 			if (is_ground) {
 				// the ground part is the top of the sprite.
@@ -816,7 +823,7 @@ class BobEntities extends BobRenderable {
 					[x, y, z], quad_type,
 					[src.sizex, src.sizey],
 					[cs.pivot.x || 0, cs.pivot.y || 0],
-					-cs.rotate || 0,
+					cs.rotate || 0,
 					[cs.scale.x, cs.scale.y]);
 
 			BobGeo.interleave_triangles(everything,
