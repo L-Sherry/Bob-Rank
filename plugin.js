@@ -595,8 +595,12 @@ class BobMap extends BobRenderable {
 		const tex_trove = this.texture_trove;
 
 		// iterate from front to back, for crummy performance reasons.
+		// also, ig.game.levels is an Object, so this also helps.
 		forEachBackward(ig.game.levels, (level,levelno) => {
-			forEachBackward(level.maps, (map, mapno) => {
+			// but iterate forwardly here. there are background map
+			// who only add details to other maps... or import
+			// tiles from other tilesetz
+			for (const map of level.maps) {
 				if (map.tiles.path !== current_texture.path) {
 					// past-the-end, actually.
 					current_texture.size
@@ -613,7 +617,7 @@ class BobMap extends BobRenderable {
 				// but entities are stronger than you and must
 				// be displayed on top of you.
 				handle_one_map_tiles(map, level.height - 0.5);
-			});
+			}
 		}, ig.game.maxLevel - 1);
 		current_texture.size = i - current_texture.start;
 		tex_trove.cleanup();
@@ -922,7 +926,8 @@ class BobRender {
 
 		this.context.enable(this.context.DEPTH_TEST);
 		// isn't that the default ? ... no, the default is LESS
-		// ... and LESS might be a better idea later on, who knows ?
+		// LEQUAL allows us to redraw on the same tile with more
+		// details, which is necessary, at least for maps.
 		this.context.depthFunc(this.context.LEQUAL);
 		// should make this black at some point.
 		// (the default is black with alpha = 0)
