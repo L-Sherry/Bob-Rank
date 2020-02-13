@@ -662,8 +662,10 @@ class BobRenderable {
 
 
 class BobMap extends BobRenderable {
-	constructor(context, vertex_location, text_coord_location) {
+	constructor(context, vertex_location, text_coord_location,
+		    moretileinfo) {
 		super(context, vertex_location, text_coord_location);
+		this.moretileinfo = moretileinfo;
 	}
 	steal_map() {
 		// AAHHHH where are my quads ? they take away my display lists,
@@ -1014,7 +1016,7 @@ class BobRender {
 		this.debugshift = { x:0, y:0, z:0 };
 	}
 
-	setup_canvas(canvas) {
+	setup_canvas(canvas, moretileinfo) {
 
 		const ratio = canvas.width / canvas.height;
 		// need a real reflection on fov:
@@ -1081,7 +1083,8 @@ class BobRender {
 		// note: the default clearDepth is 1
 
 		this.map = new BobMap(this.context, this.locations.pos,
-				      this.locations.texcoord);
+				      this.locations.texcoord,
+				      moretileinfo);
 		this.entities = new BobEntities(this.context,
 						this.locations.pos,
 						this.locations.texcoord);
@@ -1176,12 +1179,42 @@ const injector = (object, methodname, func) => {
 	object[methodname] = (...args) => func(parent, ...args);
 }*/
 
+class MoreTileInfos {
+	constructor(data) {
+		const coords = /^(\d+),(\d+)$/;
+		for (const tilepath in data) {
+			const tileinfo = data[tilepath];
+			const parsed = {};
+			for (const coord in tileinfo) {
+				const res = coords.exec(coord);
+				if (!res)
+					continue;
+				const x = Number.parseInt(res[1]);
+				const y = Number.parseInt(res[2]);
+				parsed[x + y*512/16] = tileinfo[coord];
+			}
+			this.tileinfo[tilepath] = parsed;
+		}
+	}
+}
+
 export default class Mod extends Plugin {
 	constructor(what) {
 		super(what);
 	}
-	preload() { 	}
-	postload() {
+	load_moreinfo () {
+		return new Promise(resolve, error) => {
+			$.ajax({
+				dataType:"json",
+				url:"assets/more-tiles-info.json",
+				success : d => resolve(new MoreTileInfos(d)),
+				error : error
+			});
+		});
+	}
+	preload() {
+	}
+	async postload() {
 
 		this.renderer = new BobRender();
 		this.renderer.bind_to_game();
@@ -1196,6 +1229,7 @@ export default class Mod extends Plugin {
 		this.canvas3d.style.marginTop = "320px";
 		document.getElementById("game").appendChild(this.canvas3d);
 
-		this.renderer.setup_canvas(this.canvas3d);
+		const moreinfo = await this.load_moreinfo();
+		this.renderer.setup_canvas(this.canvas3d, moreinfo);
 	}
 }
