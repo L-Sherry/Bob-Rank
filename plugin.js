@@ -345,6 +345,153 @@ class BobGeo {
 	static _quad_vertical(x, y, z, size_x, size_y, shift_x, shift_y) {
 		return [ x + shift_x, y, z + size_y - shift_y];
 	}
+	static make_quad_simple(x, y, z, plane_func, size_x, size_y) {
+		plane_func = plane_func.bind(x, y, z, size_x, size_y);
+		const topleft = plane_func(0, 0);
+		const topright = plane_func(size_x, 0);
+		const bottomleft = plane_func(0, size_y);
+		const bottomright = plane_func(size_x, size_y);
+		return { topleft, topright, bottomleft, bottomright };
+	}
+	static make_horizlike_quad(x, y, z, quad_type, size_x, size_y) {
+		const ret = BobGeo.make_quad_simple(x, y, z,
+						    BobGeo._quad_horizontal,
+						    size_x, size_y);
+		let zshift = -size_y;
+		if (quad_type.startsWith("BOTTOM_WALL_")) {
+			quad_type = ("BORDER_" +
+				     quad_type.slice("BOTTOM_WALL_".length));
+			zshift = size_y;
+		}
+		switch (quad_type) {
+		case "BORDER_SW":
+			ret.bottomleft = [ret.topleft[0], ret.topleft[1],
+					  z + zshift];
+			break;
+		case "BORDER_SE":
+			ret.bottomright = [ret.topright[0], ret.topright[1],
+					   z + zshift];
+			break;
+		case "BORDER_NW":
+			ret.topleft = [ret.bottomleft[0], ret.bottomleft[1],
+				       z + zshift];
+			break;
+		case "BORDER_NE":
+			ret.topright = [ret.bottomright[0], ret.bottomright[1],
+					z + zshift];
+			break;
+		case "SLOPE_WEST":
+			ret.topleft[2] += size_y;
+			ret.bottomleft[2] += size_y;
+			break;
+		case "SLOPE_EAST":
+			ret.topright[2] += size_y;
+			ret.bottomright[2] += size_y;
+			break;
+		case "SLOPE_NORTH":
+			ret.topleft[2] += size_y;
+			ret.topright[2] += size_y;
+			break;
+		case "SLOPE_SOUTH": // exists ?
+			ret.bottomleft[2] += size_y;
+			ret.bottomright[2] += size_y;
+			break;
+		}
+	}
+	static make_vertlike_quad(x, y, z, quad_type, size_x, size_y) {
+		let left = [x, y, z];
+		let right = [x + size_x, y, z];
+		let bottomleft;
+		let bottomright;
+
+		let left_to_right_z_shift = 0;
+		switch (quad_type) {
+		case "BOTTOM_WALL_WEST":
+		case "WALL_WEST":
+			bottomleft = [x, y, z];
+			bottomright = [x, y - size_y, z];
+			break;
+		case "BOTTOM_WALL_EAST":
+		case "WALL_EAST":
+			bottomleft = [x + size_x, y - size_y, z];
+			bottomright = [x + size_x, y, z];
+			break;
+
+		case "WALL_NW":
+			bottomleft = [x, y, z + size_y];
+			bottomright = [x + size_x, y - size_y, z];
+			break;
+		case "WALL_NE":
+			bottomleft = [x, y - size_y, z];
+			bottomright = [x + size_x, y, z + size_y];
+			break;
+
+		case "WALL_SOUTH":
+			bottomleft = [x + size_x, y, z];
+			bottomright = [x, y, z];
+			break;
+
+		case "WALL_SW":
+			bottomleft = [x + size_x, y, z];
+			bottomright = [x, y - size_y, z + size_y];
+			break;
+		case "WALL_SE":
+			bottomleft = [x + size_x, y - size_y, z + size_y];
+			bottomright = [x, y, z];
+			break;
+		}
+		const addz = a => [a[0], a[1], a[2] + size_y];
+		const topleft = addz(bottomleft);
+		const topright = addz(bottomright);
+		return { topleft, topright, bottomleft, bottomright };
+	}
+	static make_quad_vertex(x, y, z, quad_type, size_x, size_y) {
+		// base is ... low x, high y, low z. good ?
+		// in fact, it will be hard to do otherwise.
+		switch (quad_type) {
+		case "WALL_NORTH":
+		case "BOTTOM_WALL_NORTH":
+			return BobGeo.make_quad_simple(x, y, z,
+						       BobGeo._quad_vertical,
+						       size_x, size_y);
+		case "BORDER_WEST":
+		case "BORDER_EAST":
+		case "BORDER_NORTH":
+		case "BORDER_SOUTH":
+		case "GROUND":
+			return BobGeo.make_quad_simple(x, y, z,
+						       BobGeo._quad_horizontal,
+					               size_x, size_y);
+		case "BOTTOM_WALL_SW":
+		case "BOTTOM_WALL_SE":
+		case "BOTTOM_WALL_NW":
+		case "BOTTOM_WALL_SW":
+		case "BORDER_SW":
+		case "BORDER_SE":
+		case "BORDER_NW":
+		case "BORDER_SW":
+		case "SLOPE_WEST":
+		case "SLOPE_EAST":
+		case "SLOPE_NORTH":
+		case "SLOPE_SOUTH":
+			return BobGeo.make_horizlike_quad(x, y, z, quad_type,
+							  size_x, size_y);
+		case "BOTTOM_WALL_WEST":
+		case "WALL_WEST":
+		case "BOTTOM_WALL_EAST":
+		case "WALL_EAST":
+		case "WALL_NW":
+		case "WALL_NE":
+		case "WALL_SOUTH":
+		case "WALL_SW":
+		case "WALL_SE":
+			return BobGeo.make_vertlike_quad(x, y, z, quad_type,
+							 size_x, size_y);
+		default:
+			throw "unknown quad_type:" + quad_type;
+		}
+	}
+
 	static make_quad_raw(x, y, z, quad_type, size_x, size_y, coords) {
 		const ret = {};
 		let transform;
@@ -364,18 +511,6 @@ class BobGeo {
 		for (const pos in coords)
 			ret[pos] = transform(coords[pos][0], coords[pos][1]);
 		return ret;
-	}
-	static make_quad_vertex(basex, basey, basez, quad_type,
-				size_x, size_y) {
-		// base is ... low x, high y, low z. good ?
-		// in fact, it will be hard to do otherwise.
-		return BobGeo.
-			make_quad_raw(basex, basey, basez, quad_type,
-				      size_x, size_y,
-				      { topleft: [ 0, 0 ],
-					topright: [ size_x, 0 ],
-					bottomleft: [ 0, size_y ],
-					bottomright: [ size_x, size_y] });
 	}
 	static make_rotated_quad_vertex(base, quad_type, size,
 					pivot, rotation, scale) {
@@ -420,15 +555,25 @@ class BobGeo {
 	}
 
 	// Interleave those quads as TRIANGLES (not TRIANGLE_STRIP)
-	static interleave_triangles(destination, ... quads) {
+	//
+	static interleave_triangles(destination, quad_type, ... quads) {
 		// let's do it clockwise, even if, given our circonstances,
 		// we do not give any actual fuck.
 		//
 		// top left, bottom right, bottom left
 		// top left, top right, bottom right
+		//
+		// this is good and all for everything including NE/SW
+		// but NW/SE need other triangles.
+		const triangles_ne = ["topleft", "bottomright", "bottomleft",
+				      "topleft", "topright", "bottomright"];
+		const triangles_nw = ["topleft", "topright", "bottomleft",
+				      "topright", "bottomright", "bottomleft"];
+		let triangles = triangles_ne;
+		if (quad_type.endsWith("_NW") || quad_type.endsWith("_SE"))
+			triangles = triangles_nw;
 
-		for (const pos of ["topleft", "bottomright", "bottomleft",
-				   "topleft", "topright", "bottomright"])
+		for (const pos of triangles)
 			for (const quad of quads) {
 				console.assert(!isNaN(quad[pos][0]));
 				destination.push(...quad[pos]);
@@ -532,7 +677,7 @@ class BobMap extends BobRenderable {
 
 		const handle_tile = (x, y, z, tileno, tile_size,
 				     tiles_per_line, tiles_per_col) => {
-			const tile_type = /* magic ...*/ "horizontal";
+			const tile_type = /* magic ...*/ "GROUND";
 
 			// make_quad_vertex want high y
 			const quad_vertex
@@ -553,7 +698,7 @@ class BobMap extends BobRenderable {
 				= BobGeo.make_quad_tex(tile_x, tile_y,
 						       tiles_per_line,
 						       tiles_per_col, 1, 1);
-			BobGeo.interleave_triangles(everything,
+			BobGeo.interleave_triangles(everything, tile_type
 						    quad_vertex, quad_st_coord);
 			// 6 things were added by interleave_triangles().
 			i+=6;
@@ -830,7 +975,7 @@ class BobEntities extends BobRenderable {
 					cs.rotate || 0,
 					[cs.scale.x, cs.scale.y]);
 
-			BobGeo.interleave_triangles(everything,
+			BobGeo.interleave_triangles(everything, quad_type
 						    quad_vertex, src.quad_tex);
 			i += 6;
 		};
