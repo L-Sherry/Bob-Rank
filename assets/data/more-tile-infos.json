@@ -168,6 +168,24 @@
 		 "0,496": "BOTTOM_WALL_NORTH",
 		"16,496": "BOTTOM_WALL_NORTH",
 
+
+		"192,672": "WALL_NE",
+		"208,672": "WALL_NW",
+
+		"224,672": "WALL_NORTH",
+		"240,672": "WALL_NORTH",
+
+		"192,688": "WALL_NE",
+		"208,688": "WALL_NW",
+		"192,704": "WALL_NE",
+		"208,704": "WALL_NW",
+
+		"160,688": "WALL_NE",
+		"176,688": "WALL_NW",
+		"160,704": "BOTTOM_WALL_NE",
+		"176,704": "BOTTOM_WALL_NW",
+
+
 		"didn't do the autumn fall wallz":false
 	}
 
