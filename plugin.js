@@ -406,13 +406,13 @@ class BobGeo {
 		switch (quad_type) {
 		case "BOTTOM_WALL_WEST":
 		case "WALL_WEST":
-			bottomleft = [x, y, z];
-			bottomright = [x, y - size_y, z];
+			bottomleft = [x + size_x, y, z];
+			bottomright = [x + size_x, y - size_y, z];
 			break;
 		case "BOTTOM_WALL_EAST":
 		case "WALL_EAST":
-			bottomleft = [x + size_x, y - size_y, z];
-			bottomright = [x + size_x, y, z];
+			bottomleft = [x, y - size_y, z];
+			bottomright = [x, y, z];
 			break;
 
 		case "WALL_NW":
@@ -769,7 +769,7 @@ class BobMap extends BobRenderable {
 		// the border.  It's not a rendering tool, and will never be.
 		// We still have to render inaccessible area correctly...
 		const { tilesize } = map_info;
-		const default_map_z = map_info.map_z;
+		const default_map_z = map_info.min_map_z;
 		const tileinfo = map_info.tileinfo.info[tileno] || "GROUND";
 		const x = map_x * tilesize;
 
@@ -793,7 +793,8 @@ class BobMap extends BobRenderable {
 		let my_heightinfo = null;
 		let hidden_block = false;
 		while ((my_heightinfo = this.get_heightinfo(map_x, map_y))) {
-			if (my_heightinfo.z !== null)
+			if (my_heightinfo.z !== null
+			    && my_heightinfo.z >= default_map_z)
 				break;
 			if (this.on_top_of_hidden_block(x, map_y * tilesize,
 							map_z * tilesize)) {
@@ -879,7 +880,7 @@ class BobMap extends BobRenderable {
 		const quad_type = tileinfo;
 
 		const quad_vertex
-			= BobGeo.make_quad_vertex(x, y, draw_z,
+			= BobGeo.make_quad_vertex(x, y + tilesize, draw_z,
 						  quad_type,
 						  tilesize, tilesize);
 		const quad_tex = BobMap.quad_tex(tileno, map_info);
@@ -898,14 +899,14 @@ class BobMap extends BobRenderable {
 		// this one is int, used to match tile numbers to tiles
 		const tiles_per_line = Math.floor(tiles_on_line);
 		const tileinfo = this.moretileinfo.get(map.tiles.path);
-		const map_z = Math.round(z_min / tilesize);
+		const min_map_z = Math.round(z_min / tilesize);
 
 		// z_min and z_max are only theoritic.
 		return {
 			tilesize, width, height, tileinfo,
 			z_min, z_max,
 			tiles_on_line, tiles_on_col, tiles_per_line,
-			map_z,
+			min_map_z,
 		};
 	}
 
@@ -962,21 +963,16 @@ class BobMap extends BobRenderable {
 
 	draw_walls(result_vector, map, map_info) {
 
-		const { z_min, tilesize } = map_info;
-		const map_z_min = Math.round(z_min / tilesize);
-		const z_or_zmin = z => z !== null ? z : -100;
+		const { min_z_map, tilesize } = map_info;
+		// FIXME: need most negative height
+		const z_or_zmin = z => z !== null ? z : -4;
 
 		const make_wall = (map_x, map_y, from_z, to_z, wall_type,
 				   start_tile, wall_tile) => {
-			const start_z = Math.max(from_z, map_z_min);
-			let quad_type = wall_type;
-			let tileno = wall_tile;
-			if (start_z === from_z) {
-				quad_type = "BOTTOM_" + quad_type;
-				tileno = start_tile;
-			}
+			let quad_type = "BOTTOM_" + wall_type;
+			let tileno = start_tile;
 
-			for (let map_z = start_z; map_z < to_z; ++map_z) {
+			for (let map_z = from_z; map_z < to_z; ++map_z) {
 				const draw_info = {
 					x: map_x * tilesize,
 					y: map_y * tilesize,
@@ -986,28 +982,30 @@ class BobMap extends BobRenderable {
 				this.handle_tile(result_vector, tileno,
 						 draw_info, map_info);
 				quad_type = wall_type;
+				tileno = wall_tile;
 			}
 		};
 
 		// BORDER_SW/SE are already visible, don't draw them
 		const wall_types = {
 			RISE_BORDER_WEST: "WALL_EAST",
-			RISE_BORDER_NW: "WALL_SE",
 			FALL_BORDER_EAST: "WALL_WEST",
+			RISE_BORDER_NW: "WALL_SE",
 			FALL_BORDER_NE: "WALL_SW"
 		};
 
-		forEachBackward(this.height_map, (line, map_y) => {
+		forEachBackward(this.height_map, (line, shifted_map_y) => {
+			const map_y = shifted_map_y - this.height_map_shift;
 			let left = null;
+			let next_left = null;
 			line.forEach((heightinfo, map_x) => {
-				if (left === null) {
-					left = heightinfo;
+				left = next_left;
+				next_left = heightinfo;
+				if (left === null)
 					return;
-				}
 
 				const my_z = z_or_zmin(heightinfo.z);
 				const left_z = z_or_zmin(left.z);
-				left = heightinfo;
 				if (my_z === left_z)
 					return;
 				let key;
@@ -1020,7 +1018,10 @@ class BobMap extends BobRenderable {
 					key = "FALL_" + left.type;
 					from_z = my_z;
 					to_z = left_z;
+					--map_x;
 				}
+				if (to_z < min_z_map)
+					return; // lower level already did it
 				const wall_type = wall_types[key];
 				if (!wall_type)
 					return;
