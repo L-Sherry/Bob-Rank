@@ -296,13 +296,98 @@ const assign_texture = (context, texture) => {
 const draw_triangles = (context, from, size) =>
 	context.drawArrays(context.TRIANGLES, from, size);
 
+const disable_blending = context => {
+	context.disable(context.BLEND);
+};
+const enable_blending = context => {
+	context.enable(context.BLEND);
+};
+const set_blending = (context, equation, func_source, func_dest, alpha) => {
+	// OK, here's how it goes:
+	// the equation for updating pixelz is:
+	// red = source_red * source_red_factor +- red * red_factor
+	// same for blue/green/alpha, except alpha equation can be set
+	// separatedly from rgb
+	// source_red_factor is set by blending function. Each factor can be
+	// blended differently for each color using a blending function, but
+	// probably our blending function won't use it.
+	// (note: probably our color buffer does not have alpha)
+	context.blendEquation(context[equation]);
+	context.blendFunc(context[func_source], context[func_dest]);
+	if (alpha !== undefined)
+		context.blendColor(alpha, alpha, alpha, alpha);
+};
+
+// add source and destination, like the canvas "lighter"
+const blend_lighter = context =>
+	set_blending(context, "FUNC_ADD", "ONE", "ONE");
+
+const blend_lighter_constant = (context, constant) => {
+	if (constant === 1)
+		// good luck alpha one
+		blend_lighter(context);
+	else
+		set_blending(context, "FUNC_ADD",
+			     "ONE", "ONE_MINUS_SRC_COLOR",
+			     constant);
+};
+// about lighter with non-1 alpha, it is defined as follows:
+//
+// Cs: source color
+// Cb: backdrop color (what's in the dest)
+// αs: source alpha (defined by globalAlpha...)
+// αb: backdrop alpha
+// lighter:
+// Co = αs x Cs + αb x Cb;
+// αo = αs + αb
+//
+
+// do alpha blending the way you are used to, using alpha value on the color
+// fragment
+/*
+const blend_default = context =>
+	set_blending(context, "FUNC_ADD",
+			"SRC_ALPHA", "ONE_MINUS_SRC_ALPHA");
+*/
+
+// do alpha blending the way you are used to, with alpha = constant
+const blend_constant = (context, constant) => {
+	set_blending(context, "FUNC_ADD",
+			"SRC_COLOR", "ONE_MINUS_SRC_COLOR", constant);
+};
+
 // maybe there is a way to iteratize it ?
 const forEachBackward = (array, callback, from) => {
-	if (from === undefined)
+	if (from === undefined) {
 		from = array.length - 1;
+		console.assert(from !== undefined, "wtf");
+	}
 	for (let idx = from; idx >= 0; --idx)
 		callback(array[idx], idx, array);
 };
+
+class ColorCalculator {
+	constructor() {
+		this.canvas = document.createElement("canvas");
+		this.canvas.width = 1;
+		this.canvas.height = 1;
+		this.cache = {};
+	}
+	get(css_color) {
+		let ret = this.cache[css_color];
+		if (ret)
+			return ret;
+		const context2d = this.canvas.getContext("2d");
+		context2d.fillStyle = css_color;
+		context2d.fillRect(0,0,1,1);
+		const content = context2d.getImageData(0,0,1,1).data;
+		ret = Array.from(content).map(x => x / 255);
+		this.cache[css_color] = ret;
+		return ret;
+	}
+}
+
+const color_calculator = new ColorCalculator();
 
 class TextureTrove {
 	constructor(context) {
@@ -638,22 +723,34 @@ class BobGeo {
 }
 
 class BobRenderable {
-	constructor(context, vertex_location, text_coord_location) {
+	constructor(context, locations_opaque, locations_blended) {
+		this.locations_opaque = locations_opaque;
+		this.locations_blended = locations_blended;
+
+		console.assert(locations_opaque.pos !== undefined
+			       && locations_opaque.tex_coord !== undefined
+			       && locations_blended.pos !== undefined
+			       && locations_blended.tex_coord !== undefined
+			       && locations_blended.color_blend
+					!== undefined);
+
 		this.context = context;
-		this.vertex_location = vertex_location;
-		this.text_coord_location = text_coord_location;
 		this.texture_trove = new TextureTrove(this.context);
 		this.buf = context.createBuffer();
+		// for opaque objects
 		this.textures_ranges = [];
+		// for alpha blendung
+		this.blending_ranges = [];
 	}
 
-	render() {
+	render_opaque() {
 		select_buffer(this.context, this.buf);
 		// three floats for the position, two floats for texture pos
 		// total = 5
-		set_vertex_format(this.context, this.vertex_location, 3, 5, 0);
-		set_vertex_format(this.context, this.text_coord_location, 2,
-				  5, 3);
+		const { pos, tex_coord } = this.locations_opaque;
+
+		set_vertex_format(this.context, pos, 3, 5, 0);
+		set_vertex_format(this.context, tex_coord, 2, 5, 3);
 
 		for (const textrange of this.textures_ranges) {
 			console.assert(textrange.texture && textrange.size
@@ -663,13 +760,44 @@ class BobRenderable {
 				       textrange.size);
 		}
 	}
+	// assumes blending is already enabled
+	render_blended() {
+		// maybe at one point we will put parameters in there ?
+		// or maybe not.
+		select_buffer(this.context, this.buf);
+
+		const { pos, tex_coord, color_blend } = this.locations_blended;
+		set_vertex_format(this.context, pos, 3, 5, 0);
+		set_vertex_format(this.context, tex_coord, 2, 5, 3);
+
+		// let's do some alpha blendong
+		for (const blendrange of this.blending_ranges) {
+			assign_texture(this.context, blendrange.texture);
+			if (blendrange.mode === "normal")
+				blend_constant(this.context, blendrange.alpha);
+			else if (blendrange.mode === "lighter")
+				blend_lighter_constant(this.context,
+						       blendrange.alpha);
+			else
+				throw "unknown blending mode";
+			// set the uniform. doing this for each quad costs, but
+			// it's still probably less than changing textures all
+			// the time.
+			// (plus, it applies to at least 6 vertex, so it's
+			// 'uniform' enough)
+			this.context.uniform4fv(color_blend,
+						blendrange.blend_color);
+			draw_triangles(this.context, blendrange.start,
+				       blendrange.size);
+		}
+	}
 }
 
 
 class BobMap extends BobRenderable {
-	constructor(context, vertex_location, text_coord_location,
+	constructor(context, locations_opaque, locations_blended,
 		    moretileinfo) {
-		super(context, vertex_location, text_coord_location);
+		super(context, locations_opaque, locations_blended);
 		this.moretileinfo = moretileinfo;
 
 		// { type, tile }
@@ -1103,11 +1231,12 @@ const walk_break_on_first = (object, path) => {
 };
 
 class BobEntities extends BobRenderable {
-	constructor(context, vertex_location, text_coord_location) {
-		super(context, vertex_location, text_coord_location);
+	constructor(context, locations_opaque, locations_blended) {
+		super(context, locations_opaque, locations_blended);
 	}
 	clear() {
 		this.sprites_by_texture = {};
+		this.blend_sprites_by_z = [];
 		this.textures_ranges.length = 0;
 	}
 	static do_overrides(cubesprite) {
@@ -1124,10 +1253,14 @@ class BobEntities extends BobRenderable {
 		return null;
 	}
 	prepare_sprites(spritearray) {
+		if (ig.system.context.globalAlpha !== 1)
+			console.log("global alpha not one !");
 		const tex_trove = this.texture_trove;
 		const by_texture = this.sprites_by_texture;
 		for (const sprite of spritearray) {
-			const image = sprite.cubeSprite.image;
+			const cs = sprite.cubeSprite;
+			const image = cs.image;
+			// TODO: should be able to handle ig.ImagePattern
 			if (!(image && image.path && image.data)) {
 				// FIXME: ImageCanvasWrapper will be hard to
 				// cache... but it's the majority of sprites ?
@@ -1136,6 +1269,27 @@ class BobEntities extends BobRenderable {
 				continue;
 			}
 			const path = image.path;
+
+			let has_opaque = true;
+			let has_blending = false;
+			if (cs.renderMode
+			    || Number(cs.alpha) !== 1
+			    || cs.overlay.color) {
+				has_opaque = false;
+				has_blending = true;
+			}
+			if (cs.lighterOverlay.color)
+				has_blending = true;
+
+			if (has_blending)
+				this.blend_sprites_by_z.push(
+					{ sprite });
+
+			if (!has_opaque) {
+				tex_trove.add(path, image.data);
+				continue;
+			}
+
 
 			let textureinfo = by_texture[path];
 			if (!textureinfo) {
@@ -1222,76 +1376,78 @@ class BobEntities extends BobRenderable {
 						     sizex, sizey);
 		return crop;
 	}
-	finalize_sprites() {
-		const everything = [];
-		let i = 0;
+	// return number of vertex added.
+	// merely calculates the sprite vertex from the src_quad_tex stuff
+	handle_one_draw(result_vector, src_quad_tex, is_ground, sprite) {
+		if (!src_quad_tex)
+			return 0;
+		const cs = sprite.cubeSprite;
 
-		const do_sprite = sprite => {
-			const cs = sprite.cubeSprite;
-			let is_ground = sprite.ground;
-			// i have some reserves on how the game classify ground
-			// sprites from wall sprites.
-			switch (BobEntities.do_overrides(cs)) {
+		// BobGeo want low x, high y, low z
+		let x = cs.pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
+			cs.gfxCut.left;
+		let y = (cs.pos.y + cs.tmpOffset.y + cs.size.y
+				  + cs.gfxOffset.y);
+		let z = cs.pos.z + cs.tmpOffset.z;
+		if (is_ground) {
+			// the ground part is the top of the sprite.
+			z += cs.size.z;
+			// if sprite is cut from the bottom, then
+			// cut the 'bottom' of our ground.
+			y -= cs.gfxCut.bottom;
+		} else {
+			// set y to yIndex.
+			y -= cs.wallY;
+			// we have a problems with wallY.
+			// if wallY is non zero, then we must be able
+			// to render things 'below the ground'
+			// we can't do that. so we just raise everything
+			// up. what could possibly go wrong ?
+			// this is done by doing nothing to z,
+			// instead of substracting wallY to it.
+			z += cs.gfxCut.bottom;
+		}
+		const quad_type
+			= is_ground ? "horizontal" : "vertical";
+		let quad_vertex;
+		//if (cs.rotate)
+		quad_vertex = BobGeo.make_rotated_quad_vertex(
+				[x, y, z], quad_type,
+				[src_quad_tex.sizex, src_quad_tex.sizey],
+				[cs.pivot.x || 0, cs.pivot.y || 0],
+				cs.rotate || 0,
+				[cs.scale.x, cs.scale.y]);
+
+		BobGeo.interleave_triangles(result_vector, quad_type,
+					    quad_vertex, src_quad_tex.quad_tex);
+		return 6;
+	}
+	handle_one_sprite(result_vector, sprite) {
+		const cs = sprite.cubeSprite;
+		let is_ground = sprite.ground;
+		// i have some reserves on how the game classify ground
+		// sprites from wall sprites.
+		switch (BobEntities.do_overrides(cs)) {
 			case "ground":
 				is_ground = true;
 				break;
 			case "wall":
 				is_ground = false;
 				break;
-			}
+		}
 
-			const src = BobEntities.get_src_quad_tex(cs, is_ground);
-			if (!src)
-				return; // nothing to do here.
-
-			// BobGeo want low x, high y, low z
-			let x = cs.pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
-				cs.gfxCut.left;
-			let y = (cs.pos.y + cs.tmpOffset.y + cs.size.y
-					  + cs.gfxOffset.y);
-			let z = cs.pos.z + cs.tmpOffset.z;
-			if (is_ground) {
-				// the ground part is the top of the sprite.
-				z += cs.size.z;
-				// if sprite is cut from the bottom, then
-				// cut the 'bottom' of our ground.
-				y -= cs.gfxCut.bottom;
-			} else {
-				// set y to yIndex.
-				y -= cs.wallY;
-				// we have a problems with wallY.
-				// if wallY is non zero, then we must be able
-				// to render things 'below the ground'
-				// we can't do that. so we just raise everything
-				// up. what could possibly go wrong ?
-				// this is done by doing nothing to z,
-				// instead of substracting wallY to it.
-				z += cs.gfxCut.bottom;
-			}
-			const quad_type
-				= is_ground ? "horizontal" : "vertical";
-			let quad_vertex;
-			//if (cs.rotate)
-			quad_vertex
-				= BobGeo.make_rotated_quad_vertex(
-					[x, y, z], quad_type,
-					[src.sizex, src.sizey],
-					[cs.pivot.x || 0, cs.pivot.y || 0],
-					cs.rotate || 0,
-					[cs.scale.x, cs.scale.y]);
-
-			BobGeo.interleave_triangles(everything, quad_type,
-						    quad_vertex, src.quad_tex);
-			i += 6;
-		};
-
-
+		const src = BobEntities.get_src_quad_tex(cs, is_ground);
+		return this.handle_one_draw(result_vector,
+					    src, is_ground, sprite);
+	}
+	finalize_opaque_sprites(result_vector, i) {
 		for (const path in this.sprites_by_texture) {
 			const texture = this.sprites_by_texture[path];
 			const start_i = i;
 
 			for (const sprite of texture.sprites)
-				do_sprite(sprite);
+				i += this.handle_one_sprite(result_vector,
+							    sprite);
 
 			if (i === start_i)
 				continue;
@@ -1302,6 +1458,70 @@ class BobEntities extends BobRenderable {
 				size: i - start_i
 			});
 		}
+		return i;
+	}
+	finalize_blending_sprites(result_vector, i) {
+		const get_color = color_calculator.get.bind(color_calculator);
+		this.blending_ranges.length = 0;
+		for (const blend_sprite of this.blend_sprites_by_z) {
+			const start = i;
+			const cs = blend_sprite.sprite.cubeSprite;
+			i += this.handle_one_sprite(result_vector,
+						    blend_sprite.sprite);
+			const size = i - start;
+			if (!size)
+				continue;
+
+			const texture = this.texture_trove.get(cs.image.path);
+			const add = (blendmode, alpha,
+				     color, color_alpha) => {
+				if (!color)
+					color = [0,0,0,0];
+				else
+					color[3] = color_alpha;
+				this.blending_ranges.push({
+					start, size, texture,
+					mode: blendmode, alpha,
+					blend_color: color
+				});
+			};
+
+			// apparently, there cannot be image patterns here ?
+			// some idiots put strings here.
+			const alpha_base = Number(cs.alpha);
+
+			// FIXME: the game is idiotic enough to have
+			// both overlays and lighter overlay.
+			// we should precalculate the color and stuff it.
+
+			if (!cs.overlay.color) {
+				if (cs.renderMode === "lighter")
+					add("lighter", alpha_base, null, 0);
+				else if (!cs.renderMode
+					 || cs.renderMode === "source-over")
+					add("normal", alpha_base, null, 0);
+				else
+					console.warn("sprite with renderMode",
+						     cs.renderMode);
+			} else {
+				const color = get_color(cs.overlay.color);
+				add("normal", alpha_base,
+				    color, Number(cs.overlay.alpha));
+			}
+			const lighter_color = cs.lighterOverlay.color;
+			if (lighter_color) {
+				const color = get_color(lighter_color);
+				add("lighter", alpha_base,
+				    color, Number(cs.lighterOverlay.alpha));
+			}
+		}
+		return i;
+	}
+	finalize() {
+		const everything = [];
+		let i = 0;
+		i = this.finalize_opaque_sprites(everything, i);
+		i = this.finalize_blending_sprites(everything, i);
 
 		fill_dynamic_buffer(this.context, this.buf, everything);
 	}
@@ -1340,7 +1560,7 @@ class BobRender {
 		attribute vec4 pos;
 		attribute vec2 texcoord;
 		uniform mat4 projectmat;
-		varying highp vec2 texcoord2;
+		varying mediump vec2 texcoord2;
 		void main() {
 			gl_Position = projectmat * pos;
 			texcoord2 = texcoord;
@@ -1349,7 +1569,7 @@ class BobRender {
 
 		this.fragshader = compile_shader(this.context,
 						 "FRAGMENT_SHADER", `
-		varying highp vec2 texcoord2;
+		varying mediump vec2 texcoord2;
 		uniform sampler2D colorsampler;
 		void main() {
 			// FIXME: find what control interpolation in there.
@@ -1357,6 +1577,23 @@ class BobRender {
 			if (gl_FragColor.a == 0.)
 				discard;
 			// gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
+		}
+		`);
+		this.blendung_shader = compile_shader(this.context,
+						      "FRAGMENT_SHADER", `
+
+		varying mediump vec2 texcoord2;
+		uniform sampler2D colorsampler;
+		uniform mediump vec4 blend_color;
+
+		void main() {
+			mediump vec4 color = texture2D(colorsampler, texcoord2);
+			if (color.a == 0.)
+				discard;
+			mediump vec3 blended = mix(color.rgb, blend_color.rgb,
+						   blend_color.a);
+
+			gl_FragColor = vec4(blended, 1);
 		}
 		`);
 
@@ -1367,12 +1604,17 @@ class BobRender {
 						  ["pos", "texcoord"],
 						  ["projectmat",
 						   "colorsampler"]);
+		this.blend_program = create_program(this.context,
+						    [this.vertexshader,
+						     this.blendung_shader]);
+		this.blend_locations = extractlocations(this.context,
+							this.blend_program,
+							["pos", "texcoord"],
+							["projectmat",
+							 "colorsampler",
+							 "blend_color"]);
 
 		this.context.useProgram(this.program);
-
-		// Assume that TEXTURE0 is the base color texture
-		this.context.uniform1i(this.locations.colorsampler, 0);
-		// note: TEXTURE0 is the default ACTIVE_TEXTURE.
 
 		this.context.enable(this.context.DEPTH_TEST);
 		// isn't that the default ? ... no, the default is LESS
@@ -1385,12 +1627,35 @@ class BobRender {
 		this.context.clearColor(0, 0, 1, 1); // blue sky (ok ...)
 		// note: the default clearDepth is 1
 
-		this.map = new BobMap(this.context, this.locations.pos,
-				      this.locations.texcoord,
+		// maybe disable dithering ?
+		this.context.disable(this.context.DITHER);
+
+		const opaque_locations = {
+			pos: this.locations.pos,
+			tex_coord: this.locations.texcoord
+		};
+		const blend_locations = {
+			pos: this.blend_locations.pos,
+			tex_coord: this.blend_locations.texcoord,
+			color_blend: this.blend_locations.blend_color
+		};
+
+		this.map = new BobMap(this.context,
+				      opaque_locations,
+				      blend_locations,
 				      moretileinfo);
 		this.entities = new BobEntities(this.context,
-						this.locations.pos,
-						this.locations.texcoord);
+						opaque_locations,
+						blend_locations);
+	}
+
+	set_uniforms(uniforms) {
+		stuff_matrix_to_uniform(this.context,
+					uniforms.projectmat,
+					this.matrix_all);
+		// Assume that TEXTURE0 is the base color texture
+		this.context.uniform1i(uniforms.colorsampler, 0);
+		// note: TEXTURE0 is the default ACTIVE_TEXTURE.
 	}
 
 	draw_layerz (parent) {
@@ -1403,12 +1668,24 @@ class BobRender {
 		    || !(ig.game.maxLevel > 0))
 			return;
 
+		this.context.useProgram(this.program);
+		disable_blending(this.context);
+
+		this.set_uniforms(this.locations);
+
 		this.entities.clear();
 		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
 		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
-		this.entities.finalize_sprites();
-		this.map.render();
-		this.entities.render();
+		this.entities.finalize();
+		this.map.render_opaque();
+		this.entities.render_opaque();
+
+		// START ALPHA BLENDONG
+		this.context.useProgram(this.blend_program);
+		enable_blending(this.context);
+		this.set_uniforms(this.blend_locations);
+
+		this.entities.render_blended();
 	}
 
 	bind_to_game() {
@@ -1460,16 +1737,13 @@ class BobRender {
 					-centerx + this.debugshift.x,
 					-centery + this.debugshift.y,
 					-centerz + this.debugshift.z);
-		// take the camera back by 100
+		// take the camera back by 200
 		translate_matrix(view_matrix,
 				 0,
 				 0,
 				 -200);
 
-		const mulled = mulmat(this.proj_matrix, view_matrix);
-		stuff_matrix_to_uniform(this.context,
-					this.locations.projectmat,
-					mulled);
+		this.matrix_all = mulmat(this.proj_matrix, view_matrix);
 
 		this.context.clear(this.context.COLOR_BUFFER_BIT
 				   | this.context.DEPTH_BUFFER_BIT);
