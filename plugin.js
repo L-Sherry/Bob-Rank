@@ -694,6 +694,8 @@ class BobMap extends BobRenderable {
 
 		// create new heightmap (could try stealing from map, but
 		// not all maps have them)
+		// height map is indexed by true x and y and stores the height
+		// and the tile type of the higest tile
 
 		// negative height values cause problems with the height map
 		// generation, because their top refer to tiles below 0
@@ -827,6 +829,9 @@ class BobMap extends BobRenderable {
 				// we are already on top, good.
 				break;
 			case "keepz_north":
+				// FIXME: should be forbidden for z >= zmax,
+				// or at least deffered for the next level.
+				// (autumn/path-3-2 is a good torture test)
 				--map_y;
 				--map_z;
 				my_heightinfo = this.get_heightinfo(map_x,
@@ -915,6 +920,8 @@ class BobMap extends BobRenderable {
 		if (!first)
 			return;
 		const first_mapinfo = this.get_mapinfo(first, z_min, z_max);
+		// stores where each tile should be drawn, indexed by tile
+		// coordinates in the map.data
 		const draw_map = new Array(first.data.length);
 
 		const do_tile = this.handle_tile_build_height_map.bind(this);
