@@ -813,12 +813,6 @@ class BobMap extends BobRenderable {
 	steal_map_data(map) {
 		this.hiddenblocks.length = 0;
 		this.layerviews.length = 0;
-		for (const entity of ig.game.entities) {
-			if (entity instanceof ig.ENTITY.HiddenBlock)
-				this.hiddenblocks.push(entity);
-			else if (entity instanceof ig.ENTITY.ObjectLayerView)
-				this.layerviews.push(entity);
-		}
 
 		// create new heightmap (could try stealing from map, but
 		// not all maps have them)
@@ -869,12 +863,16 @@ class BobMap extends BobRenderable {
 		return pos.x <= x && x < max.x && pos.y <= y && y < max.y;
 	}
 
+
 	on_top_of_hidden_block(x, y, z) {
+		const flat = ig.COLL_HEIGHT_SHAPE_NONE;
 		// shit algorithm
 		for (const block of this.hiddenblocks) {
+			if (block.coll.heightShape !== flat)
+				continue;
 			if (!BobMap.collides_xy(x, y, block))
 				continue;
-			if (block.coll.pos.z === z)
+			if (block.coll.pos.z + block.coll.size.z === z)
 				return true;
 		}
 		return false;
@@ -1170,6 +1168,14 @@ class BobMap extends BobRenderable {
 		});
 	}
 	steal_map() {
+		// steal the entities.
+		for (const entity of ig.game.entities) {
+			if (entity instanceof ig.ENTITY.HiddenBlock)
+				this.hiddenblocks.push(entity);
+			else if (entity instanceof ig.ENTITY.ObjectLayerView)
+				this.layerviews.push(entity);
+		}
+
 		// AAHHHH where are my quads ? they take away my display lists,
 		// and now they take away my quads too ?
 		// i have to do TRIANGLES ? TRIANGLES SUCKS ! QUADROGUARD FTW !
