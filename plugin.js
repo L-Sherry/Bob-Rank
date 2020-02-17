@@ -1556,8 +1556,8 @@ class BobRender {
 		// but that's the vertical fov, which needs to be calculated
 		// from the horizontal fov, which is probably
 		// vfov = 2 * atan(ratio * tan(hfov/2))
-		const fov = Math.PI * 0.5;
-		this.proj_matrix = throw_at_wall(fov, ratio, -20, -500);
+		const fov = Math.PI * 0.4;
+		this.proj_matrix = throw_at_wall(fov, ratio, -100, -700);
 
 		this.context = webglplz(canvas);
 
@@ -1733,21 +1733,30 @@ class BobRender {
 		const view_matrix = rotate_me(this.rotate, this.nudge_angle,
 					      this.nudge_intensity);
 
-		const centerx = ig.game.screen.x + 570 / 2;
-		const centery = ig.game.screen.y + 320 / 2;
+		//const centerx = ig.camera._currentZoomPos.x;
+		//let centery = ig.camera._currentZoomPos.y;
+		const centerx = ig.camera._currentPos.x;
+		let centery = ig.camera._currentPos.y;
 		let centerz = 0;
-		if (ig.game.playerEntity)
-			centerz = ig.game.playerEntity.coll.pos.z;
+		const targets = ig.camera.targets;
+		if (targets.length) {
+			const last = targets[targets.length - 1];
+			if (last.target && last.target._currentZ) {
+				centerz = last.target._currentZ;
+				centery += centerz;
+			}
+		}
+		const zoom = ig.camera._currentZoom || 1;
 		// move center of screen at (0,0,0)
 		translate_matrix_before(view_matrix,
 					-centerx + this.debugshift.x,
 					-centery + this.debugshift.y,
 					-centerz + this.debugshift.z);
-		// take the camera back by 200
+		// take the camera back by 300
 		translate_matrix(view_matrix,
 				 0,
 				 0,
-				 -200);
+				 -275 / zoom);
 
 		this.matrix_all = mulmat(this.proj_matrix, view_matrix);
 
