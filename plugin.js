@@ -328,7 +328,7 @@ const blend_lighter_constant = (context, constant) => {
 		blend_lighter(context);
 	else
 		set_blending(context, "FUNC_ADD",
-			     "ONE", "ONE_MINUS_SRC_COLOR",
+			     "ONE", "ONE_MINUS_CONSTANT_ALPHA",
 			     constant);
 };
 // about lighter with non-1 alpha, it is defined as follows:
@@ -353,7 +353,7 @@ const blend_default = context =>
 // do alpha blending the way you are used to, with alpha = constant
 const blend_constant = (context, constant) => {
 	set_blending(context, "FUNC_ADD",
-			"SRC_COLOR", "ONE_MINUS_SRC_COLOR", constant);
+			"CONSTANT_ALPHA", "ONE_MINUS_CONSTANT_ALPHA", constant);
 };
 
 // maybe there is a way to iteratize it ?
