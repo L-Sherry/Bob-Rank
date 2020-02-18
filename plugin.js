@@ -865,7 +865,6 @@ class BobMap extends BobRenderable {
 
 
 	on_top_of_hidden_block(x, y, z) {
-		return false; // FIXME we do even more shit with them.
 		const flat = ig.COLL_HEIGHT_SHAPE_NONE;
 		// shit algorithm
 		for (const block of this.hiddenblocks) {
@@ -1271,9 +1270,8 @@ class BobEntities extends BobRenderable {
 			if (!(image && image.path && image.data)) {
 				// FIXME: ImageCanvasWrapper will be hard to
 				// cache... but it's the majority of sprites ?
-				/*if (!(image instanceof ig.ImageCanvasWrapper))
+				if (!(image instanceof ig.ImageCanvasWrapper))
 					console.log("strange sprite");
-				*/
 				continue;
 			}
 			const path = image.path;
