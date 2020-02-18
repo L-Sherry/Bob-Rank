@@ -1041,8 +1041,17 @@ class BobMap extends BobRenderable {
 		};
 	}
 
+	get_first_map_of_level(maps) {
+		for (const map of maps) {
+			const distance = Number(map.distance);
+			if (distance != 1)
+				continue;
+			return map;
+		}
+	}
+
 	handle_one_level_maps(result_vector, maps, z_min, z_max) {
-		let first = maps[0];
+		const first = this.get_first_map_of_level(maps);
 		if (!first)
 			return;
 		const first_mapinfo = this.get_mapinfo(first, z_min, z_max);
