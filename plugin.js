@@ -1046,6 +1046,8 @@ class BobMap extends BobRenderable {
 			const distance = Number(map.distance);
 			if (distance != 1)
 				continue;
+			if (!map.tiles.data)
+				continue;
 			return map;
 		}
 	}
@@ -1073,6 +1075,8 @@ class BobMap extends BobRenderable {
 
 
 		for (const map of maps) {
+			if (!map.tiles.data)
+				continue;
 			if (map.tiles.path !== current_texture().path) {
 				const pos = result_vector.length / 5;
 				// past-the-end, actually.
