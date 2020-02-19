@@ -924,6 +924,8 @@ class BobMap extends BobRenderable {
 			if (my_heightinfo.z !== null
 			    && my_heightinfo.z >= default_map_z)
 				break;
+			// FIXME: we almost never go there, unless at start
+			// of Y.
 			if (this.on_top_of_hidden_block(x, map_y * tilesize,
 							map_z * tilesize)) {
 				hidden_block = true;
@@ -981,6 +983,9 @@ class BobMap extends BobRenderable {
 		if (!found_out && hidden_block)
 			found_out = true;
 		if (!found_out) {
+			// FIXME: try the left tile. if both of us are ground
+			// then adopt left tile.
+			// (this assumes that left tile is also correct...)
 			// we have no idea where we are, so pick default.
 			map_y = default_map_y;
 			map_z = default_map_z;
