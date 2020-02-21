@@ -808,6 +808,8 @@ class BobMap extends BobRenderable {
 		this.layerviews = [];
 		this.height_map = [];
 		this.height_map_shift = 0;
+		this.mapWidth = null;
+		this.mapHeight = null;
 	}
 
 	steal_map_data(map) {
@@ -834,6 +836,9 @@ class BobMap extends BobRenderable {
 			more_y = Math.ceil(Math.abs(max_map_z));
 		}
 
+		this.mapWidth = map.mapWidth;
+		this.mapHeight = map.mapHeight;
+
 		const length = map.mapHeight + this.height_map_shift + more_y;
 		this.height_map.length = length;
 		for (let y = 0; y < this.height_map.length; ++y) {
@@ -855,15 +860,25 @@ class BobMap extends BobRenderable {
 					       map_info.tiles_on_col, 1, 1);
 		return quad_st_coord;
 	}
-
+/*
 	static collides_xy(x, y, entity) {
 		const coll = entity.coll;
 		const pos = entity.coll.pos;
 		const max = { x: pos.x + coll.size.x, y: pos.y + coll.size.y };
 		return pos.x <= x && x < max.x && pos.y <= y && y < max.y;
+	}*/
+
+	// inclusive include the higher bound
+	static filter_coord(coord, entities, value, inclusive) {
+		inclusive = inclusive ? 1 : 0;
+		return entities.filter(entity => {
+			const pos = entity.coll.pos[coord];
+			const size = entity.coll.size[coord];
+			return pos <= value && value < pos + size + inclusive;
+		});
 	}
 
-
+/*
 	on_top_of_hidden_block(x, y, z) {
 		const flat = ig.COLL_HEIGHT_SHAPE_NONE;
 		// shit algorithm
@@ -876,6 +891,47 @@ class BobMap extends BobRenderable {
 				return true;
 		}
 		return false;
+	}*/
+
+	static hidden_block_info(block, your_scr_x, your_scr_y) {
+		let base_z = Math.floor(block.coll.pos.z / 16);
+		let top_z = base_z + Math.ceil(block.coll.size.z / 16);
+		let quad_type = "GROUND";
+
+		const base_x = Math.floor(block.coll.pos.x / 16);
+		const high_x = base_x + Math.ceil(block.coll.size.x / 16);
+		const base_y = Math.floor(block.coll.pos.y / 16);
+
+		switch (block.coll.heightShape) {
+		case ig.COLL_HEIGHT_SHAPE.NONE:
+			break;
+		case ig.COLL_HEIGHT_SHAPE.WEST_UP:
+			top_z -= your_scr_x - base_x + 1;
+			quad_type = "SLOPE_WEST";
+			break;
+		case ig.COLL_HEIGHT_SHAPE.EAST_UP:
+			top_z -= high_x - your_scr_x;
+			quad_type = "SLOPE_EAST";
+			break;
+		case ig.COLL_HEIGHT_SHAPE.NORTH_UP: {
+			// map_y - map_z = scr_y
+			// map_y + map_z = max = top_z + base_y
+			// => 2 map_y = top_z + base_y + scr_y
+			// => 2 map_z = top_z + base_y - scr_y
+			// does not make sense ?
+			//
+			const min_scr_y = base_y - top_z;
+			top_z -= Math.floor( ( your_scr_y - min_scr_y) / 2) + 1;
+
+			if (top_z < base_z)
+				return null;
+			quad_type = "SLOPE_NORTH";
+			break;
+		}
+		}
+
+		return {map_x: your_scr_x,
+			map_z: base_z, top_z, block, quad_type};
 	}
 
 	get_heightinfo(map_x, map_y) {
@@ -885,6 +941,219 @@ class BobMap extends BobRenderable {
 		return line[map_x] || null;
 	}
 
+	handle_tiles_build_map(tiles, left, south) {
+		if (tiles.length === 0)
+			return;
+
+		let current_tile = null;
+		let certain = false;
+
+		const shift_current_to_z = (wanted_map_z) => {
+			const shift = wanted_map_z - current_tile.map_z;
+			current_tile.map_y += shift;
+			current_tile.map_z = wanted_map_z;
+		};
+		south = south || [];
+		left = left || [];
+
+		for (const my_tile of tiles) {
+			if (my_tile.tile || my_tile.tile === 0) {
+				current_tile = my_tile;
+				certain = false;
+			}
+			if (!current_tile)
+				continue;
+			if (my_tile.block && !certain) {
+				// i have a hidden block at my position.
+				// it's highly probable that it is correct.
+				shift_current_to_z(my_tile.top_z);
+				certain = true;
+				continue;
+			}
+
+			// the only thing we can be sure of, is that the
+			// map_z of the tile is below where the tile really is.
+
+			for (const south_tile of south) {
+				const { tile, map_z, true_tile, type }
+					= south_tile;
+				if (tile === undefined || !true_tile)
+					continue;
+				const z_action
+					= MoreTileInfos.z_action_on_tile(type);
+				switch (z_action) {
+				case "keepz_north":
+					if (map_z <= current_tile.map_z)
+						continue;
+					shift_current_to_z(map_z);
+					certain = true;
+					break;
+				case "rise":
+					// rise on top of previous tile
+					if (map_z < current_tile.map_z)
+						continue;
+					shift_current_to_z(map_z + 1);
+					certain = true;
+					break;
+				case "rise_north":
+					// this is a hack, i'm drawing twice
+					// at the same location
+					if (map_z < current_tile.map_z)
+						continue;
+					shift_current_to_z(map_z);
+					++current_tile.map_z;
+					certain = true;
+					break;
+				case "fall_north":
+					continue;
+				}
+				break;
+			}
+		}
+
+		// now cleanse the non-tiles from the tiles... in place
+		let i = 0;
+		while (i < tiles.length)
+			if (tiles[i].tile === undefined)
+				tiles.splice(i, 1);
+			else
+				++i;
+
+		// fill the height map too.
+		const tile = current_tile.tile;
+		const type = current_tile.tileinfo.get_type(tile);
+
+		const my_heightinfo
+			= this.get_heightinfo(current_tile.map_x,
+					      current_tile.map_y);
+		console.assert(my_heightinfo, "i'm nowhere");
+		my_heightinfo.z = current_tile.map_z;
+		my_heightinfo.type = type;
+	}
+
+	base_maps_by_z(levels, maxlevels) {
+		const ret = [];
+
+		for (let levelno = 0; levelno < maxlevels; ++levelno) {
+			const level = levels[levelno];
+
+			const maps = [];
+			for (const map of level.maps) {
+				const distance = Number(map.distance);
+				if (distance !== 1)
+					continue;
+				if (!map.tiles.data)
+					continue;
+				maps.push(map);
+			}
+
+			if (!maps.length)
+				continue;
+
+			const next_level = levels[levelno + 1];
+
+			const z_min = level.height;
+			const z_max = next_level ? next_level.height : 9999999;
+
+			const mapinfo = this.get_mapinfo(maps[0], z_min, z_max);
+			mapinfo.maps = maps;
+			ret.push(mapinfo);
+			// TODO: detect object maps here and store them
+		}
+		return ret;
+	}
+
+
+	make_draw_map(levels, maxlevel) {
+		const base_maps = this.base_maps_by_z(levels, maxlevel);
+		if (!base_maps.length)
+			return null;
+		//const absolute_map_z_min = base_maps[0].min_map_z;
+
+		const filter_x = BobMap.filter_coord.bind(null, "x");
+		//const filter_y = BobMap.filter_coord.bind(null, "y");
+
+		const find_tiles = (scr_x, scr_y, hiddenblocks) => {
+
+			// a hidden block is interesting if:
+			// - we are on top of it
+			// - we are inside it
+			const blocks = [];
+			for (const block of hiddenblocks) {
+				const map_x = Math.floor(block.coll.pos.x / 16);
+				const map_y = Math.floor(block.coll.pos.y / 16);
+				const map_z = Math.floor(block.coll.pos.z / 16);
+				const size_y
+					= Math.ceil(block.coll.size.y / 16);
+				const size_z
+					= Math.ceil(block.coll.size.z / 16);
+				const top_z = map_z + size_z;
+
+				const max_scr_y = map_y + size_y - map_z;
+				const min_scr_y = map_y - map_z - size_z;
+				if (!(min_scr_y <= scr_y && scr_y < max_scr_y))
+					continue;
+				blocks.push({ map_x, map_y, map_z, top_z,
+					      block });
+			}
+
+			const tiles = [];
+			for (const map_info of base_maps) {
+				const { min_map_z, tileinfo } = map_info;
+				const map_y = scr_y + min_map_z;
+
+				let tile = map_info.maps[0].data[scr_y][scr_x];
+				let true_tile = true;
+				let type = "GROUND";
+				if (tile === 0) {
+					true_tile = false;
+					for (let map of map_info.maps) {
+						tile = map.data[scr_y][scr_x];
+						if (tile !== 0)
+							break;
+					}
+				} else
+					type = tileinfo.get_type(tile - 1);
+
+				if (tile === 0)
+					continue;
+
+				const tile_pos = {
+					map_x: scr_x, map_y, map_z: min_map_z,
+					tile: tile - 1,
+					true_tile,
+					type,
+					tileinfo,
+					map_info
+				};
+				tiles.push(tile_pos);
+			}
+			const all = blocks.concat(tiles);
+			all.sort(t => t.map_z);
+			return all;
+		};
+
+		const draw_map = [];
+		for (let scr_x = 0; scr_x < this.mapWidth; ++scr_x) {
+			const hidden_block_col = filter_x(this.hiddenblocks,
+							  scr_x * 16);
+			const draw_col = new Array(this.mapHeight);
+			draw_map.push(draw_col);
+
+			for (let scr_y = this.mapHeight; scr_y --> 0;) {
+				const left = scr_x ? draw_map[scr_x-1][scr_y]
+						   : null;
+				const south = draw_col[scr_y + 1];
+				const tiles = find_tiles(scr_x, scr_y,
+							 hidden_block_col);
+				draw_col[scr_y] = tiles;
+				this.handle_tiles_build_map(tiles, left, south);
+			}
+		}
+		return draw_map;
+	}
+
+	/*
 	handle_tile_build_height_map(map_x, map_y, tileno, map_info) {
 		// For your information :
 		// using the collision map here sounds like a great idea,
@@ -1000,12 +1269,12 @@ class BobMap extends BobRenderable {
 		return { x, y: map_y * tilesize, z: map_z * tilesize,
 			 tileinfo };
 	}
-
+	*/
 
 	handle_tile(result_vector, tileno, draw_info, map_info) {
 		if (tileno === -1)
 			return;
-		const { x, y, z, tileinfo } = draw_info;
+		const { x, y, z, quad_type } = draw_info;
 		const { tilesize } = map_info;
 
 		// The Z Fighting War has begun.
@@ -1013,7 +1282,6 @@ class BobMap extends BobRenderable {
 		// Which mean, not you. Sorry, map.
 		// but entities are stronger than you and must be on top of you.
 		const draw_z = z - 0.5;
-		const quad_type = tileinfo;
 
 		const quad_vertex
 			= BobGeo.make_quad_vertex(x, y + tilesize, draw_z,
@@ -1034,18 +1302,21 @@ class BobMap extends BobRenderable {
 		const tiles_on_col = height / tilesize;
 		// this one is int, used to match tile numbers to tiles
 		const tiles_per_line = Math.floor(tiles_on_line);
+		const path = map.tiles.path;
 		const tileinfo = this.moretileinfo.get(map.tiles.path);
 		const min_map_z = Math.round(z_min / tilesize);
+		//const max_map_z = Math.round(z_max / tilesize);
 
 		// z_min and z_max are only theoritic.
 		return {
+			path,
 			tilesize, width, height, tileinfo,
 			z_min, z_max,
 			tiles_on_line, tiles_on_col, tiles_per_line,
 			min_map_z,
 		};
 	}
-
+/*
 	get_first_map_of_level(maps) {
 		for (const map of maps) {
 			const distance = Number(map.distance);
@@ -1111,6 +1382,36 @@ class BobMap extends BobRenderable {
 				this.draw_walls(result_vector, map, map_info);
 		}
 	}
+*/
+	draw_one_map(result_vector, map, draw_map, level) {
+		const tile_has_level
+			= tile_pos => tile_pos.map_info.z_min === level;
+		const get_tile = tiles => tiles.find(tile_has_level);
+
+		const handle_tile = this.handle_tile.bind(this, result_vector);
+		const map_info = this.get_mapinfo(map, level, 42);
+		const tilesize = map_info.tilesize;
+
+		let count = 0;
+		draw_map.forEach((draw_col, scr_x) => {
+			draw_col.forEach((draw_info, scr_y) => {
+				const tile = map.data[scr_y][scr_x] - 1;
+				if (tile === -1)
+					return;
+				const tile_pos = get_tile(draw_info);
+				const real_draw_info = {
+					x: tile_pos.map_x * tilesize,
+					y: tile_pos.map_y * tilesize,
+					z: tile_pos.map_z * tilesize,
+					quad_type: tile_pos.type
+				};
+				handle_tile(tile, real_draw_info, map_info);
+				++count;
+			});
+		});
+
+		return count * 6; // we add two triangles of 3 vertex each time
+	}
 
 	draw_walls(result_vector, map, map_info) {
 
@@ -1128,7 +1429,7 @@ class BobMap extends BobRenderable {
 					x: map_x * tilesize,
 					y: map_y * tilesize,
 					z: map_z * tilesize,
-					tileinfo: quad_type
+					quad_type: quad_type
 				};
 				this.handle_tile(result_vector, tileno,
 						 draw_info, map_info);
@@ -1198,32 +1499,69 @@ class BobMap extends BobRenderable {
 		// and now they take away my quads too ?
 		// i have to do TRIANGLES ? TRIANGLES SUCKS ! QUADROGUARD FTW !
 		const everything = [];
+		let i = 0;
 
 		// should probably migrate to vertex indexes. at least they
 		// kept this.
 
 		const textures_ranges = this.textures_ranges;
-		textures_ranges.length = 1;
-		textures_ranges[0] = {start:0};
+		textures_ranges.length = 0;
 		// should probably reorder by texture, too ? or nobody cares
 		// because it's probable only one is used ?
 		const tex_trove = this.texture_trove;
 
-		for (let levelno = 0; levelno < ig.game.maxLevel; ++levelno) {
-			const level = ig.game.levels[levelno];
-			const next_level = ig.game.levels[levelno + 1];
-			// but iterate forwardly here. there are background map
-			// who only add details to other maps... or import
-			// tiles from other tilesetz
-			const z_min = level.height;
-			const z_max = next_level ? next_level.height : 9999999;
-			this.handle_one_level_maps(everything, level.maps,
-						   z_min, z_max);
+		const draw_map
+			= this.make_draw_map(ig.game.levels, ig.game.maxLevel);
+
+		if (!draw_map) {
+			// happens at start
+			tex_trove.cleanup();
+			fill_const_buffer(this.context, this.buf, everything);
+			return;
 		}
-		const last_range = textures_ranges[textures_ranges.length - 1];
-		last_range.size = everything.length / 5 - last_range.start;
+
+		// find all required textures
+
+		// really need a map with insertion order
+		const texture_obj = { order: []};
+		forEachBackward(ig.game.levels, level => {
+			for (const map of level.maps) {
+				if (map.tiles.path in texture_obj)
+					continue;
+				const path = map.tiles.path;
+				const img = map.tiles.data;
+				const texture = tex_trove.add(path, img);
+				texture_obj[path] = texture;
+				texture_obj.order.push(path);
+			}
+		}, ig.game.maxLevel - 1);
+
+		// now iterate them
+
+		for (const texture_path of texture_obj.order) {
+			const texture = texture_obj[texture_path];
+			const text_range = { start: i, texture: texture };
+			forEachBackward(ig.game.levels, (level, levelno) => {
+				const z_level = level.height;
+				for (const map of level.maps) {
+					if (map.tiles.path !== texture_path)
+						continue;
+					// i don't think i have written so many
+					// imbricated fors in my life.
+					// maybe i'm just missing my dear bmi ?
+					i += this.draw_one_map(everything, map,
+							       draw_map,
+							       z_level);
+				}
+			}, ig.game.maxLevel - 1);
+
+			text_range.size = i - text_range.start;
+			if (text_range.size)
+				textures_ranges.push(text_range);
+		}
+
+
 		tex_trove.cleanup();
-		textures_ranges.forEach(e => e.texture = tex_trove.get(e.path));
 
 		fill_const_buffer(this.context, this.buf, everything);
 
@@ -1545,7 +1883,7 @@ class BobEntities extends BobRenderable {
 		const everything = [];
 		let i = 0;
 		i = this.finalize_opaque_sprites(everything, i);
-		i = this.finalize_blending_sprites(everything, i);
+		this.finalize_blending_sprites(everything, i);
 
 		fill_dynamic_buffer(this.context, this.buf, everything);
 	}
@@ -1820,12 +2158,24 @@ class MoreTileInfos {
 					// FIXME
 					wall_north = tileno;
 			}
-			this.tileinfo[tilepath] = { info: parsed, wall_north};
+			const get_type
+				= MoreTileInfos.get_type.bind(null, parsed);
+			this.tileinfo[tilepath]
+				= { info: parsed, wall_north, get_type };
 		}
+	}
+	static get_type(by_tileno, tileno) {
+		return by_tileno[tileno] || "GROUND";
 	}
 	get(path) {
 		path = path.replace(/.*[/]/, "");
-		return this.tileinfo[path] || { info: {}, wall_north: 64};
+		let ret = this.tileinfo[path];
+		if (!ret) {
+			ret = { info: {}, wall_north: 64,
+				get_type: MoreTileInfos.get_type.bind(null, {})
+			      };
+		}
+		return ret;
 	}
 
 	// what to do on the tile on top of this one
