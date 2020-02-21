@@ -945,73 +945,96 @@ class BobMap extends BobRenderable {
 		if (tiles.length === 0)
 			return;
 
-		let current_tile = null;
-		let certain = false;
-
-		const shift_current_to_z = (wanted_map_z) => {
-			const shift = wanted_map_z - current_tile.map_z;
-			current_tile.map_y += shift;
-			current_tile.map_z = wanted_map_z;
+		const shift_to_z = (tile, wanted_map_z) => {
+			const shift = wanted_map_z - tile.map_z;
+			tile.map_y += shift;
+			tile.map_z = wanted_map_z;
 		};
-		south = south || [];
-		left = left || [];
+		if (south)
+			south = Array.from(south);
+		else
+			south = [];
 
-		for (const my_tile of tiles) {
-			if (my_tile.tile || my_tile.tile === 0) {
-				current_tile = my_tile;
-				certain = false;
+		//left = left ? Array.from(left) || [];
+
+		let current_block = null;
+		let first = true;
+
+		forEachBackward(tiles, my_tile => {
+			if (my_tile.block) {
+				current_block = my_tile;
+				return;
 			}
-			if (!current_tile)
-				continue;
-			if (my_tile.block && !certain) {
+			let certain = false;
+
+			// first hint: hidden blocks
+			if (current_block !== null) {
 				// i have a hidden block at my position.
 				// it's highly probable that it is correct.
-				shift_current_to_z(my_tile.top_z);
+				shift_to_z(my_tile, current_block.top_z);
 				certain = true;
-				continue;
+				current_block = null;
 			}
 
-			// the only thing we can be sure of, is that the
-			// map_z of the tile is below where the tile really is.
-
-			for (const south_tile of south) {
+			// second hint: south tile
+			let southindex = south.length;
+			while (southindex --> 0) {
 				const { tile, map_z, true_tile, type }
-					= south_tile;
+					= south[southindex];
 				if (tile === undefined || !true_tile)
 					continue;
 				const z_action
 					= MoreTileInfos.z_action_on_tile(type);
 				switch (z_action) {
 				case "keepz_north":
-					if (map_z <= current_tile.map_z)
-						continue;
-					shift_current_to_z(map_z);
-					certain = true;
+					if (map_z > my_tile.map_z) {
+						shift_to_z(my_tile, map_z);
+						certain = true;
+					}
 					break;
 				case "rise":
 					// rise on top of previous tile
-					if (map_z < current_tile.map_z)
-						continue;
-					shift_current_to_z(map_z + 1);
-					certain = true;
+					if (map_z >= my_tile.map_z) {
+						shift_to_z(my_tile, map_z + 1);
+						certain = true;
+					}
 					break;
 				case "rise_north":
 					// this is a hack, i'm drawing twice
 					// at the same location
-					if (map_z < current_tile.map_z)
-						continue;
-					shift_current_to_z(map_z);
-					++current_tile.map_z;
-					certain = true;
+					if (map_z >= my_tile.map_z) {
+						shift_to_z(my_tile, map_z);
+						++my_tile.map_z;
+						certain = true;
+					}
 					break;
 				case "fall_north":
-					continue;
+					console.assert(map_z > my_tile.map_z);
+					certain = true;
+					break;
 				}
 				break;
 			}
-		}
+			south.length = Math.max(0, southindex);
+
+			if (first) {
+				first = false;
+
+				// fill the height map too.
+				const tile = my_tile.tile;
+				const type = my_tile.tileinfo.get_type(tile);
+
+				const my_heightinfo
+					= this.get_heightinfo(my_tile.map_x,
+							      my_tile.map_y);
+				console.assert(my_heightinfo, "i'm nowhere");
+				my_heightinfo.z = my_tile.map_z;
+				my_heightinfo.type = type;
+			}
+		});
 
 		// now cleanse the non-tiles from the tiles... in place
+		// (the above loop could do it ...)
 		let i = 0;
 		while (i < tiles.length)
 			if (tiles[i].tile === undefined)
@@ -1019,16 +1042,6 @@ class BobMap extends BobRenderable {
 			else
 				++i;
 
-		// fill the height map too.
-		const tile = current_tile.tile;
-		const type = current_tile.tileinfo.get_type(tile);
-
-		const my_heightinfo
-			= this.get_heightinfo(current_tile.map_x,
-					      current_tile.map_y);
-		console.assert(my_heightinfo, "i'm nowhere");
-		my_heightinfo.z = current_tile.map_z;
-		my_heightinfo.type = type;
 	}
 
 	base_maps_by_z(levels, maxlevels) {
@@ -1129,7 +1142,8 @@ class BobMap extends BobRenderable {
 				tiles.push(tile_pos);
 			}
 			const all = blocks.concat(tiles);
-			all.sort(t => t.map_z);
+			all.sort(t =>
+				t.top_z !== undefined ? t.top_z : t.map_z);
 			return all;
 		};
 
@@ -1559,6 +1573,8 @@ class BobMap extends BobRenderable {
 			if (text_range.size)
 				textures_ranges.push(text_range);
 		}
+
+		// TODO: draw_walls() again.
 
 
 		tex_trove.cleanup();
