@@ -458,10 +458,13 @@ class BobGeo {
 					   z + zshift];
 			break;
 		case "BORDER_NW":
+		case "SLOPE_EAST_BORDER_NW":
+			// FIXME: handle border slopes
 			ret.topleft = [ret.bottomleft[0], ret.bottomleft[1],
 				       z + zshift];
 			break;
 		case "BORDER_NE":
+		case "SLOPE_WEST_BORDER_NE":
 			ret.topright = [ret.bottomright[0], ret.bottomright[1],
 					z + zshift];
 			break;
@@ -531,6 +534,8 @@ class BobGeo {
 	static make_quad_vertex(x, y, z, quad_type, size_x, size_y) {
 		// base is ... low x, high y, low z. good ?
 		// in fact, it will be hard to do otherwise.
+		if (quad_type.startsWith("IGNORE_"))
+			quad_type = quad_type.slice("IGNORE_".length);
 		switch (quad_type) {
 		case "WALL_NORTH":
 		case "BOTTOM_WALL_NORTH":
@@ -553,6 +558,8 @@ class BobGeo {
 		case "BORDER_SE":
 		case "BORDER_NW":
 		case "BORDER_NE":
+		case "SLOPE_WEST_BORDER_NE":
+		case "SLOPE_EAST_BORDER_NW":
 		case "SLOPE_WEST":
 		case "SLOPE_EAST":
 		case "SLOPE_NORTH":
@@ -986,8 +993,10 @@ class BobMap extends BobRenderable {
 				const z_action
 					= MoreTileInfos.z_action_on_tile(type);
 				switch (z_action) {
+				case "ignore":
+					continue;
 				case "keepz_north":
-					if (map_z > my_tile.map_z) {
+					if (map_z >= my_tile.map_z) {
 						shift_to_z(my_tile, map_z);
 						certain = true;
 					}
@@ -1009,9 +1018,8 @@ class BobMap extends BobRenderable {
 					}
 					break;
 				case "fall_north":
-					console.assert(map_z > my_tile.map_z);
-					certain = true;
-					break;
+					console.assert(map_z => my_tile.map_z);
+					continue;
 				}
 				break;
 			}
@@ -2196,6 +2204,8 @@ class MoreTileInfos {
 
 	// what to do on the tile on top of this one
 	static z_action_on_tile(tileinfo) {
+		if (tileinfo.startsWith("IGNORE_"))
+			return "ignore"; // decorative in first map
 		switch (tileinfo) {
 		case "BORDER_SOUTH":
 		case "BORDER_SW":
@@ -2220,6 +2230,8 @@ class MoreTileInfos {
 		case "BORDER_NORTH":
 		case "BORDER_NE":
 		case "BORDER_NW":
+		case "SLOPE_WEST_BORDER_NE": // these are borders, above all
+		case "SLOPE_EAST_BORDER_NW":
 			return "fall_north"; // fall and go north
 		default:
 			throw "unknown tileinfo" + tileinfo;

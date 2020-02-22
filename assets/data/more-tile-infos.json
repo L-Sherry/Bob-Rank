@@ -1,5 +1,14 @@
 {
 	"autumn-outside.png": {
+
+		"0,64": "IGNORE_WALL_NORTH",
+		"16,64": "IGNORE_WALL_NORTH",
+		"32,64": "IGNORE_WALL_NORTH",
+		"48,64": "IGNORE_WALL_NORTH",
+		"64,64": "IGNORE_WALL_NORTH",
+		"80,64": "IGNORE_WALL_NORTH",
+
+
 		"0,80": "WALL_NORTH",
 		"16,80": "BORDER_NW",
 		"32,80": "BORDER_NORTH",
@@ -83,8 +92,8 @@
 
 		"32,224": "SLOPE_NORTH",
 
-		"xxxx48,224": "SLOPE_EAST_WALL_NW ??",
-		"xxxx64,224": "SLOPE_EAST_WALL_NE ??",
+		"48,224": "SLOPE_WEST_BORDER_NE",
+		"64,224": "SLOPE_EAST_BORDER_NW",
 
 		"48,240": "BOTTOM_WALL_NORTH",
 		"64,240": "BOTTOM_WALL_NORTH",
