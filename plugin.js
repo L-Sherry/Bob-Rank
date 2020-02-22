@@ -1111,8 +1111,7 @@ class BobMap extends BobRenderable {
 	}
 
 
-	make_draw_map(levels, maxlevel) {
-		const base_maps = this.base_maps_by_z(levels, maxlevel);
+	make_draw_map(base_maps) {
 		if (!base_maps.length)
 			return null;
 		//const absolute_map_z_min = base_maps[0].min_map_z;
@@ -1268,11 +1267,13 @@ class BobMap extends BobRenderable {
 		return count * 6; // we add two triangles of 3 vertex each time
 	}
 
-	draw_walls(result_vector, map, map_info) {
+	draw_walls(result_vector, map_info) {
 
 		const { min_z_map, tilesize } = map_info;
 		// FIXME: need most negative height
 		const z_or_zmin = z => z !== null ? z : -4;
+
+		let count = 0;
 
 		const make_wall = (map_x, map_y, from_z, to_z, wall_type,
 				   start_tile, wall_tile) => {
@@ -1288,6 +1289,7 @@ class BobMap extends BobRenderable {
 				};
 				this.handle_tile(result_vector, tileno,
 						 draw_info, map_info);
+				++count;
 				quad_type = wall_type;
 				tileno = wall_tile;
 			}
@@ -1340,6 +1342,8 @@ class BobMap extends BobRenderable {
 					  map_info.tileinfo.wall_north);
 			});
 		});
+
+		return count * 6;
 	}
 	steal_map() {
 		// steal the entities.
@@ -1367,8 +1371,9 @@ class BobMap extends BobRenderable {
 		// because it's probable only one is used ?
 		const tex_trove = this.texture_trove;
 
-		const draw_map
-			= this.make_draw_map(ig.game.levels, ig.game.maxLevel);
+		const base_maps = this.base_maps_by_z(ig.game.levels,
+						      ig.game.maxLevel);
+		const draw_map = this.make_draw_map(base_maps);
 
 		if (!draw_map) {
 			// happens at start
@@ -1393,6 +1398,12 @@ class BobMap extends BobRenderable {
 			}
 		}, ig.game.maxLevel - 1);
 
+		const get_info_if_base_map = maybe_base => (
+			base_maps.find(map_info => (
+				map_info.maps[0] === maybe_base
+			))
+		);
+
 		// now iterate them
 
 		for (const texture_path of texture_obj.order) {
@@ -1409,6 +1420,11 @@ class BobMap extends BobRenderable {
 					i += this.draw_one_map(everything, map,
 							       draw_map,
 							       z_level);
+					const map_info
+						= get_info_if_base_map(map);
+					if (map_info)
+						i += this.draw_walls(everything,
+								     map_info);
 				}
 			}, ig.game.maxLevel - 1);
 
@@ -1416,9 +1432,6 @@ class BobMap extends BobRenderable {
 			if (text_range.size)
 				textures_ranges.push(text_range);
 		}
-
-		// TODO: draw_walls() again.
-
 
 		tex_trove.cleanup();
 
