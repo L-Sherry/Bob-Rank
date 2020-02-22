@@ -366,6 +366,9 @@ const forEachBackward = (array, callback, from) => {
 		callback(array[idx], idx, array);
 };
 
+const sortWithKey = (array, key) => array.sort((a, b) => key(a) - key(b));
+
+
 class ColorCalculator {
 	constructor() {
 		this.canvas = document.createElement("canvas");
@@ -867,13 +870,6 @@ class BobMap extends BobRenderable {
 					       map_info.tiles_on_col, 1, 1);
 		return quad_st_coord;
 	}
-/*
-	static collides_xy(x, y, entity) {
-		const coll = entity.coll;
-		const pos = entity.coll.pos;
-		const max = { x: pos.x + coll.size.x, y: pos.y + coll.size.y };
-		return pos.x <= x && x < max.x && pos.y <= y && y < max.y;
-	}*/
 
 	// inclusive include the higher bound
 	static filter_coord(coord, entities, value, inclusive) {
@@ -885,60 +881,89 @@ class BobMap extends BobRenderable {
 		});
 	}
 
-/*
-	on_top_of_hidden_block(x, y, z) {
-		const flat = ig.COLL_HEIGHT_SHAPE_NONE;
-		// shit algorithm
-		for (const block of this.hiddenblocks) {
-			if (block.coll.heightShape !== flat)
-				continue;
-			if (!BobMap.collides_xy(x, y, block))
-				continue;
-			if (block.coll.pos.z + block.coll.size.z === z)
-				return true;
-		}
-		return false;
-	}*/
-
-	static hidden_block_info(block, your_scr_x, your_scr_y) {
-		let base_z = Math.floor(block.coll.pos.z / 16);
-		let top_z = base_z + Math.ceil(block.coll.size.z / 16);
-		let quad_type = "GROUND";
-
+	static hidden_block_info(block) {
 		const base_x = Math.floor(block.coll.pos.x / 16);
 		const high_x = base_x + Math.ceil(block.coll.size.x / 16);
 		const base_y = Math.floor(block.coll.pos.y / 16);
+		const high_y = base_y + Math.ceil(block.coll.size.y / 16);
 
+		const base_z = Math.floor(block.coll.pos.z / 16);
+		const top_z = base_z + Math.ceil(block.coll.size.z / 16);
+
+		// these bounds are large, they must be restricted depending
+		// on z.
+		let min_scr_y = base_y - top_z;
+		let max_scr_y = high_y - base_z;
+
+		let quad_type = "GROUND";
 		switch (block.coll.heightShape) {
 		case ig.COLL_HEIGHT_SHAPE.NONE:
+			max_scr_y = high_y - top_z;
 			break;
 		case ig.COLL_HEIGHT_SHAPE.WEST_UP:
-			top_z -= your_scr_x - base_x + 1;
 			quad_type = "SLOPE_WEST";
 			break;
 		case ig.COLL_HEIGHT_SHAPE.EAST_UP:
-			top_z -= high_x - your_scr_x;
 			quad_type = "SLOPE_EAST";
 			break;
-		case ig.COLL_HEIGHT_SHAPE.NORTH_UP: {
+		case ig.COLL_HEIGHT_SHAPE.NORTH_UP:
+			quad_type = "SLOPE_NORTH";
+			break;
+		}
+		return { base_x, high_x, base_y, high_y, base_z, top_z,
+			 min_scr_y, max_scr_y, quad_type };
+	}
+
+	static clip_hidden_block(block_info, your_scr_x, your_scr_y) {
+
+		if (!(block_info.min_scr_y <= your_scr_y
+		      && your_scr_y < block_info.max_scr_y))
+			return null;
+
+		const { base_x, high_x, base_y, high_y, base_z, top_z,
+			quad_type } = block_info;
+
+		let map_z = top_z;
+		let tile_z = top_z;
+		let { min_scr_y, max_scr_y } = block_info;
+
+		switch (quad_type) {
+		case "GROUND":
+			break;
+		case "SLOPE_WEST":
+			map_z -= your_scr_x - base_x + 1;
+			// the tile is actually above
+			tile_z = map_z + 1;
+			min_scr_y = base_y - tile_z;
+			max_scr_y = high_y - tile_z;
+
+			break;
+		case "SLOPE_EAST":
+			map_z -= high_x - your_scr_x;
+			// the tile is actually above
+			tile_z = map_z + 1;
+			min_scr_y = base_y - tile_z;
+			max_scr_y = high_y - tile_z;
+			break;
+		case "SLOPE_NORTH":
 			// map_y - map_z = scr_y
 			// map_y + map_z = max = top_z + base_y
 			// => 2 map_y = top_z + base_y + scr_y
 			// => 2 map_z = top_z + base_y - scr_y
-			// does not make sense ?
-			//
-			const min_scr_y = base_y - top_z;
-			top_z -= Math.floor( ( your_scr_y - min_scr_y) / 2) + 1;
+			// does not make sense to divide by two ? except it does
 
-			if (top_z < base_z)
+			tile_z -= Math.floor((your_scr_y - min_scr_y) / 2);
+			map_z = tile_z - 1;
+
+			if (map_z < base_z)
 				return null;
-			quad_type = "SLOPE_NORTH";
 			break;
 		}
-		}
 
-		return {map_x: your_scr_x,
-			map_z: base_z, top_z, block, quad_type};
+		if (!(min_scr_y <= your_scr_y && your_scr_y < max_scr_y))
+			return null;
+
+		return {map_z, block: block_info};
 	}
 
 	get_heightinfo(map_x, map_y) {
@@ -962,72 +987,131 @@ class BobMap extends BobRenderable {
 		else
 			south = [];
 
+		// cleanse the south
+		south = south.filter(south_tile => {
+
+			// hidden block or decorative tile
+			if (south_tile.tile === undefined
+			    || !south_tile.true_tile)
+				return false;
+			const { type } = south_tile;
+			const z_action = MoreTileInfos.z_action_on_tile(type);
+			if (z_action === "fall_north")
+				// this does not include any information
+				return false;
+			if (z_action === "ignore")
+				return false;
+			// boo ! hack.
+			south_tile.z_action = z_action;
+			return true;
+		});
+
+
 		//left = left ? Array.from(left) || [];
 
 		let current_block = null;
-		let first = true;
+		let last_tile = null;
+
+		const guess_from_block = () => {
+			if (current_block !== null) {
+				return { z_action: "keepz_north",
+					 from_z: current_block.map_z,
+					 certitude: 20 };
+			}
+			return { certitude: 0 };
+		};
+		const guess_from_south = (my_tile) => {
+			let ret = { certitude: 0 };
+			let certain = 0;
+			let southindex = south.length;
+			while (southindex --> 0) {
+				const { map_z, z_action } = south[southindex];
+				switch (z_action) {
+				case "keepz_north":
+					// don't keep below
+					if (map_z < my_tile.map_z)
+						continue;
+					// it's a ground.
+					if (map_z === my_tile.map_z)
+						certain = 10;
+					else
+						certain = 5;
+					break;
+				case "rise": // rise on top of south tile
+				case "rise_north": // rise next to it (slope)
+					// don't rise below
+					if (map_z < my_tile.map_z)
+						continue;
+					certain = 5;
+					if (last_tile !== null &&
+					    last_tile.map_z < map_z + 1)
+						// last_tile drawn above
+						// us is below us ?
+						// this... is nonsense
+						// (autumn/path4 50x47)
+						// delete the tile.
+						return { certitude: -1 };
+					break;
+				}
+				if (certain > ret.certitude) {
+					ret.certitude = certain;
+					ret.z_action = z_action;
+					ret.index = southindex;
+					ret.from_z = map_z;
+				} else if (certain < 0)
+					return { certitude: -1 };
+			}
+
+			if (ret.index === undefined)
+				south.length = 0;
+			else
+				south.length = ret.index;
+			return ret;
+		};
+
+		// OK, so on our left, we have "tiles" which is the collection
+		// of tiles to be drawn at our position, for different heigts.
+		// and on our right, we have "south", which is the collection
+		// of tiles that were drawn on our south.
+		// And we have to match them. And this sucks.
 
 		forEachBackward(tiles, my_tile => {
 			if (my_tile.block) {
 				current_block = my_tile;
 				return;
 			}
-			let certain = false;
 
 			// first hint: hidden blocks
-			if (current_block !== null) {
-				// i have a hidden block at my position.
-				// it's highly probable that it is correct.
-				shift_to_z(my_tile, current_block.top_z);
-				certain = true;
-				current_block = null;
-			}
-
+			const block_guess = guess_from_block();
 			// second hint: south tile
-			let southindex = south.length;
-			while (southindex --> 0) {
-				const { tile, map_z, true_tile, type }
-					= south[southindex];
-				if (tile === undefined || !true_tile)
-					continue;
-				const z_action
-					= MoreTileInfos.z_action_on_tile(type);
-				switch (z_action) {
-				case "ignore":
-					continue;
-				case "keepz_north":
-					if (map_z >= my_tile.map_z) {
-						shift_to_z(my_tile, map_z);
-						certain = true;
-					}
-					break;
-				case "rise":
-					// rise on top of previous tile
-					if (map_z >= my_tile.map_z) {
-						shift_to_z(my_tile, map_z + 1);
-						certain = true;
-					}
-					break;
-				case "rise_north":
-					// this is a hack, i'm drawing twice
-					// at the same location
-					if (map_z >= my_tile.map_z) {
-						shift_to_z(my_tile, map_z);
-						++my_tile.map_z;
-						certain = true;
-					}
-					break;
-				case "fall_north":
-					console.assert(map_z => my_tile.map_z);
-					continue;
-				}
+			const south_guess = guess_from_south(my_tile);
+
+			if (block_guess.certitude < 0
+			    || south_guess.certitude < 0)
+				// the tile is crap, forget it
+				return;
+
+			let best_guess = null;
+			if (block_guess.certitude > south_guess.certitude)
+				best_guess = block_guess;
+			else
+				best_guess = south_guess;
+
+			switch (best_guess.z_action) {
+			case "keepz_north":
+				shift_to_z(my_tile, best_guess.from_z);
 				break;
+			case "rise":
+				shift_to_z(my_tile, best_guess.from_z + 1);
+				break;
+			case "rise_north":
+				// this is a hack, i'm drawing twice
+				// at the same location
+				shift_to_z(my_tile, best_guess.from_z + 1);
+				--my_tile.map_z;
 			}
-			south.length = Math.max(0, southindex);
 
-			if (first) {
-				first = false;
-
+			if (last_tile === null) {
 				// fill the height map too.
 				const tile = my_tile.tile;
 				const type = my_tile.tileinfo.get_type(tile);
@@ -1039,6 +1123,7 @@ class BobMap extends BobRenderable {
 				my_heightinfo.z = my_tile.map_z;
 				my_heightinfo.type = type;
 			}
+			last_tile = my_tile;
 		});
 
 		// now cleanse the non-tiles from the tiles... in place
@@ -1091,31 +1176,18 @@ class BobMap extends BobRenderable {
 			return null;
 		//const absolute_map_z_min = base_maps[0].min_map_z;
 
-		const filter_x = BobMap.filter_coord.bind(null, "x");
-		//const filter_y = BobMap.filter_coord.bind(null, "y");
-
 		const find_tiles = (scr_x, scr_y, hiddenblocks) => {
 
-			// a hidden block is interesting if:
-			// - we are on top of it
-			// - we are inside it
+			// a hidden block is interesting if we are on top of
+			// it, nothing else (for now)
 			const blocks = [];
-			for (const block of hiddenblocks) {
-				const map_x = Math.floor(block.coll.pos.x / 16);
-				const map_y = Math.floor(block.coll.pos.y / 16);
-				const map_z = Math.floor(block.coll.pos.z / 16);
-				const size_y
-					= Math.ceil(block.coll.size.y / 16);
-				const size_z
-					= Math.ceil(block.coll.size.z / 16);
-				const top_z = map_z + size_z;
-
-				const max_scr_y = map_y + size_y - map_z;
-				const min_scr_y = map_y - map_z - size_z;
-				if (!(min_scr_y <= scr_y && scr_y < max_scr_y))
-					continue;
-				blocks.push({ map_x, map_y, map_z, top_z,
-					      block });
+			for (const block_info of hiddenblocks) {
+				const clipped
+					= BobMap.clip_hidden_block(block_info,
+								   scr_x,
+								   scr_y);
+				if (clipped)
+					blocks.push(clipped);
 			}
 
 			const tiles = [];
@@ -1150,15 +1222,19 @@ class BobMap extends BobRenderable {
 				tiles.push(tile_pos);
 			}
 			const all = blocks.concat(tiles);
-			all.sort(t =>
-				t.top_z !== undefined ? t.top_z : t.map_z);
+			// sort by ascending z (even if we iterate it backward
+			// later ...)
+			// and put hidden blocks before the rest, because the
+			// reconstruction algo needs that.
+			sortWithKey(all, i => i.map_z + (i.block ? 0.5 : 0));
 			return all;
 		};
 
 		const draw_map = [];
 		for (let scr_x = 0; scr_x < this.mapWidth; ++scr_x) {
-			const hidden_block_col = filter_x(this.hiddenblocks,
-							  scr_x * 16);
+			const hidden_block_col = this.hiddenblocks.filter(b => (
+				b.base_x <= scr_x && scr_x < b.high_x
+			));
 			const draw_col = new Array(this.mapHeight);
 			draw_map.push(draw_col);
 
@@ -1174,124 +1250,6 @@ class BobMap extends BobRenderable {
 		}
 		return draw_map;
 	}
-
-	/*
-	handle_tile_build_height_map(map_x, map_y, tileno, map_info) {
-		// For your information :
-		// using the collision map here sounds like a great idea,
-		// doesn't it ?
-		// Well, there is just one problem :
-		// The collision map is used to prevent the player from going
-		// into places. And nothing else.
-		// For example, it prevents the player from crossing the white
-		// strips and exiting the map, by placing infinite walls at
-		// the border.  It's not a rendering tool, and will never be.
-		// We still have to render inaccessible area correctly...
-		const { tilesize } = map_info;
-		const default_map_z = map_info.min_map_z;
-		const tileinfo = map_info.tileinfo.info[tileno] || "GROUND";
-		const x = map_x * tilesize;
-
-		// find our true z : iterate the height map by going south and
-		// up at the same time.
-		// also iterate the hidden block to find grounds.
-		let map_z = default_map_z;
-		// now, map_y is the base of the map.
-		map_y += map_z;
-		const default_map_y = map_y;
-
-		if (tileno === -1) {
-			// ok, we have nothing on the first map, that does
-			// not mean there isn't something to draw on the
-			// following maps.
-			// this sucks, but we have to return something here.
-			return { x, y: map_y * tilesize, z: map_z * tilesize,
-				 tileinfo };
-		}
-
-		let my_heightinfo = null;
-		let hidden_block = false;
-		while ((my_heightinfo = this.get_heightinfo(map_x, map_y))) {
-			if (my_heightinfo.z !== null
-			    && my_heightinfo.z >= default_map_z)
-				break;
-			// FIXME: we almost never go there, unless at start
-			// of Y.
-			if (this.on_top_of_hidden_block(x, map_y * tilesize,
-							map_z * tilesize)) {
-				hidden_block = true;
-				break;
-			}
-			++map_y;
-			++map_z;
-		}
-
-		let found_out = false;
-
-		const get_z_action = MoreTileInfos.z_action_on_tile.bind(null);
-
-		if (my_heightinfo && my_heightinfo.z === map_z - 1) {
-			// it's a match ! we are either on top of it, or
-			// next to it (same z). Let's find out !
-
-			console.assert(my_heightinfo.type !== null,
-				       "crap in heightmap");
-			found_out = true;
-			switch (get_z_action(my_heightinfo.type)) {
-			case "rise":
-				// special case for small (2x2) pillars whose
-				// back is somewhat visible
-				if (tileinfo === "GROUND") {
-					found_out = false;
-					break;
-				}
-				// we are already on top, good.
-				break;
-			case "keepz_north":
-				// FIXME: should be forbidden for z >= zmax,
-				// or at least deffered for the next level.
-				// (autumn/path-3-2 is a good torture test)
-				--map_y;
-				--map_z;
-				my_heightinfo = this.get_heightinfo(map_x,
-								    map_y);
-				break;
-			case "rise_north":
-				// it's a slope, go north at same z
-				--map_y;
-				my_heightinfo = this.get_heightinfo(map_x,
-								    map_y);
-				break;
-			case "fall_north":
-				// we cannot be next or on top of it.
-				// we still don't know where we are.
-				found_out = false;
-				break;
-			default:
-				throw "wtf am i here";
-			}
-		}
-		if (!found_out && hidden_block)
-			found_out = true;
-		if (!found_out) {
-			// FIXME: try the left tile. if both of us are ground
-			// then adopt left tile.
-			// (this assumes that left tile is also correct...)
-			// we have no idea where we are, so pick default.
-			map_y = default_map_y;
-			map_z = default_map_z;
-			my_heightinfo = this.get_heightinfo(map_x, map_y);
-		}
-
-		// else, we are correctly possitioned by hidden block...
-
-		// now, what are we ?
-		my_heightinfo.type = tileinfo;
-		my_heightinfo.z = map_z;
-		return { x, y: map_y * tilesize, z: map_z * tilesize,
-			 tileinfo };
-	}
-	*/
 
 	handle_tile(result_vector, tileno, draw_info, map_info) {
 		if (tileno === -1)
@@ -1338,73 +1296,7 @@ class BobMap extends BobRenderable {
 			min_map_z,
 		};
 	}
-/*
-	get_first_map_of_level(maps) {
-		for (const map of maps) {
-			const distance = Number(map.distance);
-			if (distance != 1)
-				continue;
-			if (!map.tiles.data)
-				continue;
-			return map;
-		}
-	}
 
-	handle_one_level_maps(result_vector, maps, z_min, z_max) {
-		const first = this.get_first_map_of_level(maps);
-		if (!first)
-			return;
-		const first_mapinfo = this.get_mapinfo(first, z_min, z_max);
-		// stores where each tile should be drawn, indexed by tile
-		// coordinates in the map.data
-		const draw_map = new Array(first.data.length);
-
-		const do_tile = this.handle_tile_build_height_map.bind(this);
-		forEachBackward(first.data, (line, map_y) => {
-			const draw_line = draw_map[map_y] = [];
-			line.forEach((tile, map_x) => {
-				draw_line.push(do_tile(map_x, map_y, tile - 1,
-					               first_mapinfo));
-			});
-		});
-
-		const tex_ranges = this.textures_ranges;
-		const current_texture = () => tex_ranges[tex_ranges.length-1];
-
-
-		for (const map of maps) {
-			if (!map.tiles.data)
-				continue;
-			if (map.tiles.path !== current_texture().path) {
-				const pos = result_vector.length / 5;
-				// past-the-end, actually.
-				current_texture().size
-					= (pos - current_texture().start);
-				if (current_texture().size)
-					tex_ranges.push({start: pos});
-				current_texture().path = map.tiles.path;
-				const img = map.tiles.data;
-				this.texture_trove.add(map.tiles.path, img);
-			}
-
-			const map_info = this.get_mapinfo(map, z_min, z_max);
-
-			// high y values are closer to you...
-			// but since it's monotonic, it's idiotic here.
-			forEachBackward(map.data, (line, map_y) => {
-				line.forEach((tile, map_x) => {
-					const info = draw_map[map_y][map_x];
-					this.handle_tile(result_vector,
-							 tile - 1, info,
-							 map_info);
-				});
-			});
-
-			if (map === first)
-				this.draw_walls(result_vector, map, map_info);
-		}
-	}
-*/
 	draw_one_map(result_vector, map, draw_map, level) {
 		const tile_has_level
 			= tile_pos => tile_pos.map_info.z_min === level;
@@ -1511,9 +1403,11 @@ class BobMap extends BobRenderable {
 	steal_map() {
 		// steal the entities.
 		for (const entity of ig.game.entities) {
-			if (entity instanceof ig.ENTITY.HiddenBlock)
-				this.hiddenblocks.push(entity);
-			else if (entity instanceof ig.ENTITY.ObjectLayerView)
+			if (entity instanceof ig.ENTITY.HiddenBlock) {
+				const block_info
+					= BobMap.hidden_block_info(entity);
+				this.hiddenblocks.push(block_info);
+			} else if (entity instanceof ig.ENTITY.ObjectLayerView)
 				this.layerviews.push(entity);
 		}
 
