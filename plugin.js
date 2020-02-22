@@ -1,4 +1,4 @@
-
+// SPDX-Identifier: MIT
 "use strict";
 
 const webglplz = (canvas) => {
