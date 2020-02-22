@@ -342,14 +342,6 @@ const blend_lighter_constant = (context, constant) => {
 // αo = αs + αb
 //
 
-// do alpha blending the way you are used to, using alpha value on the color
-// fragment
-/*
-const blend_default = context =>
-	set_blending(context, "FUNC_ADD",
-			"SRC_ALPHA", "ONE_MINUS_SRC_ALPHA");
-*/
-
 // do alpha blending the way you are used to, with alpha = constant
 const blend_constant = (context, constant) => {
 	set_blending(context, "FUNC_ADD",
@@ -679,57 +671,6 @@ class BobGeo {
 				destination.push(...quad[pos]);
 			}
 	}
-
-	/*
-	static make_triangle(basex, basey, basez, quad_type, triangles, shift) {
-		// clockwise:
-		//
-		// top left, bottom right, bottom left
-		// top left, top right, bottom right
-
-		const do_triangle = (shiftx, shifty, shiftz) => {
-			triangles.push(basex + shiftx,
-				       basey + shifty,
-				       basez + shiftz);
-		};
-		switch (quad_type) {
-		case "horizontal":
-			do_triangle(0, -shift, 0);
-			do_triangle(shift, 0, 0);
-			do_triangle(0, 0, 0);
-
-			do_triangle(0, -shift, 0);
-			do_triangle(shift, -shift, 0);
-			do_triangle(shift, 0, 0);
-			break;
-		case "vertical":
-			do_triangle(0,0,shift);
-			do_triangle(shift,0,0);
-			do_triangle(0,0,0);
-
-			do_triangle(0,0,shift);
-			do_triangle(shift,0,shift);
-			do_triangle(shift,0,0);
-			break;
-		}
-	}
-	static make_texture(tile_x_pos, tile_y_pos, total_width, total_height,
-			    tile_size, st_coords) {
-		// use same convention as make_triangle.
-		// also, textures are screen-oriented.
-		const left = tile_x_pos / total_width;
-		const right = left_x + tile_size / total_width;
-		const top_ = tile_y_pos / total_height;
-		const bottom = top_y + tile_size / total_width;
-
-		st_coords.push(
-			left, top_,
-			right, bottom,
-			left, bottom,
-			left, top_,
-			right, top_,
-			right, bottom_);
-	}*/
 }
 
 class BobRenderable {
@@ -2038,18 +1979,6 @@ class BobRender {
 				   | this.context.DEPTH_BUFFER_BIT);
 	}
 }
-
-/*
-const injector = (object, methodname, func) => {
-	if (object.inject)
-		// easy way
-		return object.inject({ [methodname]: function(... args) {
-			func(this.parent.bind(this), ...args);
-		});
-	// hard way
-	const parent = object[methodname].bind(object);
-	object[methodname] = (...args) => func(parent, ...args);
-}*/
 
 class MoreTileInfos {
 	constructor(data) {
