@@ -1578,36 +1578,35 @@ class BobEntities extends BobRenderable {
 		let offsety = 0;
 		let sizex
 			= cs.size.x - cs.gfxCut.right - cs.gfxCut.left;
-		let sizey;
 
-		// yes, there are wall sprites with cs.wallY = cs.size.y.
-		// Even if i think they should really be ground sprites.
-		// (this includes sweeps)
-
-		if (cs.wallY >= cs.size.y)
-			// apply default
-			sizey = cs.size.y + cs.size.z;
-		else if (ground)
-			// amputate wallY from ground
-			sizey = cs.size.y - cs.wallY;
-		else if (!cs.mergeTop) {
-			// remove the ground part
-			offsety = cs.size.y - cs.wallY;
-			// sizey = size.y + size.z - offsety
-			sizey = cs.size.z - cs.wallY;
-		} else
-			sizey = cs.size.y + cs.size.z;
-
-		offsety = Math.max(cs.gfxCut.top, offsety);
-		if (cs.gfxCut.bottom)
-			sizey = Math.min(sizex,
-					 cs.size.y + cs.size.z
-					 - cs.gfxCut.bottom);
 		if (cs.flip.x)
 			// basically, gfxCut.left and gfxCut.right
 			// happens after flipping.
 			// basically, we should swap them
 			offsetx = cs.gfxCut.right;
+
+		let sizey = cs.size.y + cs.size.z;
+
+		// yes, there are wall sprites with cs.wallY = cs.size.y.
+		// Even if i think they should really be ground sprites.
+		// (this includes sweeps)
+
+		let cuttop = 0;
+		let cutbottom = 0;
+		if (cs.wallY >= cs.size.y)
+			// apply default
+			;
+		else if (ground)
+			// keep ground but amputate wallY from it
+			cutbottom = sizey - (cs.size.y - cs.wallY);
+		else if (!cs.mergeTop) {
+			// remove the ground part
+			cuttop = cs.size.y - cs.wallY;
+		}
+		cuttop = Math.max(cs.gfxCut.top, cuttop);
+		cutbottom = Math.max(cs.gfxCut.bottom, cutbottom);
+		offsety = cuttop;
+		sizey = sizey - cuttop - cutbottom;
 
 		if (sizex <= 0 || sizey <= 0
 		    || !cs.scale.x
@@ -1622,6 +1621,7 @@ class BobEntities extends BobRenderable {
 		if (!crop)
 			return null;
 		let {offsetx, offsety, sizex, sizey } = crop;
+		// do the actual flips, by inverting the st coords
 		if (cubesprite.flip.x) {
 			offsetx += sizex;
 			sizex = -sizex;
