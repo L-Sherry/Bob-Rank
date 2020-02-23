@@ -541,6 +541,10 @@ class BobGeo {
 		case "BORDER_EAST":
 		case "BORDER_NORTH":
 		case "BORDER_SOUTH":
+		case "BORDER_NW_FLAT":
+		case "BORDER_NE_FLAT":
+		case "BORDER_SW_FLAT":
+		case "BORDER_SE_FLAT":
 		case "GROUND":
 			return BobGeo.make_quad_simple(x, y, z,
 						       BobGeo._quad_horizontal,
@@ -1054,15 +1058,13 @@ class BobMap extends BobRenderable {
 
 			if (last_tile === null) {
 				// fill the height map too.
-				const tile = my_tile.tile;
-				const type = my_tile.tileinfo.get_type(tile);
-
 				const my_heightinfo
 					= this.get_heightinfo(my_tile.map_x,
 							      my_tile.map_y);
 				console.assert(my_heightinfo, "i'm nowhere");
 				my_heightinfo.z = my_tile.map_z;
-				my_heightinfo.type = type;
+				my_heightinfo.type = my_tile.type;
+				my_heightinfo.tile = my_tile.tile;
 			}
 			last_tile = my_tile;
 		});
@@ -1279,6 +1281,8 @@ class BobMap extends BobRenderable {
 				   start_tile, wall_tile) => {
 			let quad_type = "BOTTOM_" + wall_type;
 			let tileno = start_tile;
+			if (tileno === null)
+				tileno = wall_tile;
 
 			for (let map_z = from_z; map_z < to_z; ++map_z) {
 				const draw_info = {
@@ -1287,6 +1291,8 @@ class BobMap extends BobRenderable {
 					z: map_z * tilesize,
 					quad_type: quad_type
 				};
+				if (tileno === null)
+					return;
 				this.handle_tile(result_vector, tileno,
 						 draw_info, map_info);
 				++count;
@@ -1300,7 +1306,20 @@ class BobMap extends BobRenderable {
 			RISE_BORDER_WEST: "WALL_EAST",
 			FALL_BORDER_EAST: "WALL_WEST",
 			RISE_BORDER_NW: "WALL_SE",
-			FALL_BORDER_NE: "WALL_SW"
+			FALL_BORDER_NE: "WALL_SW",
+
+			RISE_BORDER_NW_FLAT: "WALL_EAST",
+			RISE_BORDER_SW_FLAT: "WALL_EAST",
+
+			FALL_BORDER_NE_FLAT: "WALL_WEST",
+			FALL_BORDER_SE_FLAT: "WALL_WEST"
+		};
+		// use this tile for the given wall type
+		const tile_types = {
+			WALL_EAST: "WALL_NORTH",
+			WALL_WEST: "WALL_NORTH",
+			WALL_SE: "WALL_NW",
+			WALL_SW: "WALL_NE"
 		};
 
 		forEachBackward(this.height_map, (line, shifted_map_y) => {
@@ -1319,15 +1338,18 @@ class BobMap extends BobRenderable {
 					return;
 				let key;
 				let from_z, to_z;
+				let tile;
 				if (my_z > left_z) {
 					key = "RISE_" + heightinfo.type;
 					from_z = left_z;
 					to_z = my_z;
+					tile = heightinfo.tile;
 				} else {
 					key = "FALL_" + left.type;
 					from_z = my_z;
 					to_z = left_z;
 					--map_x;
+					tile = left.tile;
 				}
 				if (to_z < min_z_map)
 					return; // lower level already did it
@@ -1335,11 +1357,17 @@ class BobMap extends BobRenderable {
 				if (!wall_type)
 					return;
 
+				const tile_type = tile_types[wall_type];
+
+				const wall_tile = (
+					map_info.tileinfo.get_default
+						.bind(map_info.tileinfo, tile)
+				);
+
 				make_wall(map_x, map_y, from_z, to_z,
 					  wall_type,
-					  // FIXME: better tile
-					  map_info.tileinfo.wall_north,
-					  map_info.tileinfo.wall_north);
+					  wall_tile("BOTTOM_"+tile_type),
+					  wall_tile(tile_type));
 			});
 		});
 
@@ -1998,46 +2026,189 @@ class BobRender {
 }
 
 class MoreTileInfos {
-	constructor(data) {
-		this.tileinfo = {};
-		const coords = /^(\d+),(\d+)$/;
-		for (const tilepath in data) {
-			const tileinfo = data[tilepath];
-			// FIXME
-			let wall_north = null;
-			const parsed = {};
-			for (const coord in tileinfo) {
-				const res = coords.exec(coord);
-				if (!res)
-					continue;
-				let x = Number.parseInt(res[1]);
-				x = Math.round(x / 16);
-				let y = Number.parseInt(res[2]);
-				y = Math.round(y / 16);
+	static parse_entry(key, value) {
 
-				const tileno = x + y * 512 / 16;
-				parsed[tileno] = tileinfo[coord];
-				if (tileinfo[coord] === "WALL_NORTH"
-				    && !wall_north)
-					// FIXME
-					wall_north = tileno;
-			}
-			const get_type
-				= MoreTileInfos.get_type.bind(null, parsed);
-			this.tileinfo[tilepath]
-				= { info: parsed, wall_north, get_type };
+		const res = /^(\d+),(\d+)(?:\+(\d+),(\d+))?$/.exec(key);
+		if (!res) {
+			console.assert(false, "invalid entry:", key);
+			return null;
+		}
+
+		let x = Math.round(Number.parseInt(res[1]) / 16);
+		let y = Math.round(Number.parseInt(res[2]) / 16);
+		let size_x = 1, size_y = 1;
+		if (res[3]) {
+			size_x = Math.round(Number.parseInt(res[3]) / 16);
+			size_y = Math.round(Number.parseInt(res[4]) / 16);
+		}
+
+		let info;
+		if (value.constructor === String)
+			info = value.split(/\s+/).filter(s => s);
+		else if (Array.isArray(value))
+			info = value;
+		else
+			throw "insupported stuff: "+ info;
+		return { x, y, size_x, size_y, info };
+	}
+	static handle_type1(size_x, size_y, add_function) {
+		console.assert(size_x === 6);
+		console.assert(size_y >= 4);
+		const TYPE1_BASE_INFO = [
+			null, "BORDER_NW", "BORDER_NORTH",
+			"BORDER_NORTH", "BORDER_NE", null,
+
+			"BORDER_NW", "GROUND", "BORDER_WEST",
+			"BORDER_EAST", "GROUND", "BORDER_NE",
+
+			"BORDER_SW", "GROUND", "BORDER_WEST",
+			"BORDER_EAST", "GROUND", "BORDER_SE",
+
+			null, "BORDER_SW", "BORDER_SOUTH",
+			"BORDER_SOUTH", "BORDER_SE", null
+		];
+		TYPE1_BASE_INFO.forEach((type, i) => {
+			if (!type)
+				return;
+			add_function(i % 6, Math.floor(i / 6), type);
+		});
+
+		const TYPE1_WALLS = [
+			"WALL_NE", "WALL_NE", "WALL_NORTH",
+			"WALL_NORTH", "WALL_NW", "WALL_NW"
+		];
+
+		for (let chipy = 4; chipy < size_y; ++chipy) {
+			const prefix = chipy === size_y - 1 ? "BOTTOM_" : "";
+			TYPE1_WALLS.forEach((type, sx) => {
+				add_function(sx,
+					     chipy - Number(sx % 5 === 0),
+					     prefix + type);
+			});
 		}
 	}
-	static get_type(by_tileno, tileno) {
-		return by_tileno[tileno] || "GROUND";
+	static handle_type2(size_x, size_y, add_function) {
+		console.assert(size_x === 5);
+		console.assert(size_y >= 4);
+
+		const TYPE2_BASE_INFO = [
+			"BORDER_NW", "BORDER_NORTH", "BORDER_NE",
+			"BORDER_NW_FLAT", "BORDER_NE_FLAT",
+
+			"GROUND", "GROUND", "GROUND",
+			"BORDER_WEST", "BORDER_EAST",
+
+			"GROUND", "GROUND", "GROUND",
+			"BORDER_SW_FLAT", "BORDER_SE_FLAT",
+
+			"BORDER_SW", "BORDER_SOUTH", "BORDER_SE"
+		];
+		TYPE2_BASE_INFO.forEach((type, i) => {
+			add_function(i % 5, Math.floor(i / 5), type);
+		});
+
+		const TYPE2_WALLS = [
+			"WALL_NE", "WALL_NORTH", "WALL_SE",
+			"WALL_NORTH", "WALL_NORTH"
+		];
+
+		for (let i = TYPE2_BASE_INFO.length; i < size_y * size_x; ++i) {
+			const typeno = i % 5;
+			const sy = Math.floor(i / 5);
+
+			let type = TYPE2_WALLS[typeno];
+			const bottom
+				= sy === size_y - 1 ? "BOTTOM_" : "";
+			add_function(typeno, sy, bottom + type);
+		}
+	}
+	static interpret_entry(entry, by_tile, defaults) {
+		const { info, x, y, size_x, size_y } = entry;
+		let is_default = false;
+		{
+			const default_i = info.indexOf("DEFAULT");
+			if (default_i !== -1) {
+				is_default = true;
+				info.splice(default_i, 1);
+			}
+		}
+		const add_shift = (sx, sy, type) => {
+			const tileno = x + sx + (y + sy) * 512 / 16;
+			by_tile[tileno] = { type: type, is_default };
+			if (is_default && defaults[type] === undefined)
+				defaults[type] = tileno;
+		};
+		console.assert(info.length === 1, "unsupported stuff", info);
+
+		switch (info[0]) {
+		case "TYPE1":
+			this.handle_type1(size_x, size_y, add_shift);
+			break;
+		case "TYPE2":
+			this.handle_type2(size_x, size_y, add_shift);
+			break;
+		default:
+			for (let sx = 0; sx < size_x; ++sx)
+				for (let sy = 0; sy < size_y; ++sy)
+					add_shift(sx, sy, info[0]);
+		}
+	}
+	static parse_tileset(data) {
+		const entries = [];
+		for (let key in data) {
+			const entry = this.parse_entry(key, data[key]);
+			if (entry !== null)
+				entries.push(entry);
+		}
+		sortWithKey(entries, entry => -entry.size_x * entry.size_y);
+		const defaults = {};
+		const by_tileno = {};
+		entries.forEach(entry => this.interpret_entry(entry, by_tileno,
+							      defaults));
+		return { by_tileno, defaults };
+	}
+	constructor(data) {
+		this.tileinfo = {};
+		for (const tilepath in data) {
+			const set_by_tileno = {};
+			const sets = {};
+			for (const setname in data[tilepath]) {
+				const set = data[tilepath][setname];
+				const set_info
+					= MoreTileInfos.parse_tileset(set);
+
+				sets[setname] = set_info;
+				for (const tileno in set_info.by_tileno)
+					set_by_tileno[tileno] = set_info;
+			}
+			const info = { by_tileno: set_by_tileno, sets };
+
+			info.get_type
+				= MoreTileInfos.get_type.bind(null, info);
+
+			info.get_default
+				= MoreTileInfos.get_default.bind(null, info);
+			this.tileinfo[tilepath] = info;
+		}
+	}
+	static get_type(set_info, tileno) {
+		const set = set_info.by_tileno[tileno];
+		if (!set)
+			return "GROUND";
+		return set.by_tileno[tileno].type;
+	}
+	static get_default(set_info, tileno, type) {
+		const set = set_info.by_tileno[tileno];
+		if (!set)
+			return null;
+		return set.defaults[type] || null;
 	}
 	get(path) {
 		path = path.replace(/.*[/]/, "");
 		let ret = this.tileinfo[path];
 		if (!ret) {
-			ret = { info: {}, wall_north: 64,
-				get_type: MoreTileInfos.get_type.bind(null, {})
-			      };
+			ret = { get_type: () => "BORDER_NORTH",
+				get_default: () => null };
 		}
 		return ret;
 	}
@@ -2050,6 +2221,8 @@ class MoreTileInfos {
 		case "BORDER_SOUTH":
 		case "BORDER_SW":
 		case "BORDER_SE":
+		case "BORDER_SW_FLAT":
+		case "BORDER_SE_FLAT":
 		case "BORDER_EAST":
 		case "BORDER_WEST":
 		case "SLOPE_WEST":
@@ -2070,6 +2243,8 @@ class MoreTileInfos {
 		case "BORDER_NORTH":
 		case "BORDER_NE":
 		case "BORDER_NW":
+		case "BORDER_NE_FLAT":
+		case "BORDER_NW_FLAT":
 		case "SLOPE_WEST_BORDER_NE": // these are borders, above all
 		case "SLOPE_EAST_BORDER_NW":
 			return "fall_north"; // fall and go north
