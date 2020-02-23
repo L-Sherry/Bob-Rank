@@ -1,6 +1,6 @@
 {
 	"autumn-outside.png": {
-
+		"TODO separate in sets": {
 		"0,64": "IGNORE_WALL_NORTH",
 		"16,64": "IGNORE_WALL_NORTH",
 		"32,64": "IGNORE_WALL_NORTH",
@@ -43,12 +43,12 @@
 		"64,128": "BORDER_SE",
 		"80,128": "WALL_NW",
 
-		 "0,144": "BOTTOM_WALL_NE",
-		"16,144": "WALL_NE",
-		"32,144": "WALL_NORTH",
+		 "0,144": "BOTTOM_WALL_NE DEFAULT",
+		"16,144": "WALL_NE DEFAULT",
+		"32,144": "WALL_NORTH DEFAULT",
 		"48,144": "WALL_NORTH",
-		"64,144": "WALL_NW",
-		"80,144": "BOTTOM_WALL_NW",
+		"64,144": "WALL_NW DEFAULT",
+		"80,144": "BOTTOM_WALL_NW DEFAULT",
 
 		 "0,160": "BOTTOM_WALL_NE",
 		"16,160": "BOTTOM_WALL_NE",
@@ -192,10 +192,109 @@
 		"160,688": "WALL_NE",
 		"176,688": "WALL_NW",
 		"160,704": "BOTTOM_WALL_NE",
-		"176,704": "BOTTOM_WALL_NW",
+		"176,704": "BOTTOM_WALL_NW"
+		},
+		"didn't do the autumn fall wallz": {}
+	},
+	"bergen-trail.png": {
+		"rocky": {
+			"0,64+96,96": "TYPE1 DEFAULT"
+		},
+		"wallz": {
+			"0,320": "BOTTOM_WALL_NE",
+			"80,64+32,16": "BOTTOM_WALL_NORTH",
+			"176,64": "BOTTOM_WALL_NW",
 
+			"0,144": "BOTTOM_WALL_NE",
 
-		"didn't do the autumn fall wallz":false
+			"80,144": "BOTTOM_WALL_NW",
+
+			"0,160+32,16": "WALL_NE",
+			"32,160+32,16": "WALL_NORTH DEFAULT",
+			"64,160+32,16": "WALL_NW"
+		},
+		"grassy": {
+			"96,64+96,80": "TYPE1 DEFAULT",
+			"112,144+16,32": "BORDER_WEST",
+			"128,144+32,16": "BORDER_NORTH",
+			"128,160+32,16": "BORDER_SOUTH",
+			"160,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+		"snowy": {
+			"192,64+96,80": "TYPE1 DEFAULT",
+			"208,144+16,32": "BORDER_WEST",
+			"224,144+32,16": "BORDER_NORTH",
+			"224,160+32,16": "BORDER_SOUTH",
+			"256,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+
+		"spikes down": {
+			"0,176": "WALL_NE",
+			"0,192": "BOTTOM_WALL_NE",
+
+			"16,176": "WALL_NW",
+			"16,192": "BOTTOM_WALL_NW",
+
+			"32,176": "BOTTOM_WALL_NE",
+			"48,192": "BOTTOM_WALL_NW",
+
+			"64,176+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"spikes up": {
+			"32,192+32,32": "WALL_NORTH",
+			 "0,208": "WALL_NE",
+			"16,208": "WALL_NW",
+			 "0,224": "BOTTOM_WALL_NE",
+			"16,224": "BOTTOM_WALL_NW"
+		},
+		"waterwall": {
+			"192,176": "BOTTOM_WALL_NE",
+			"208,192": "BOTTOM_WALL_NE",
+			"224,192+32,16": "BOTTOM_WALL_NORTH",
+			"256,192": "BOTTOM_WALL_NW",
+			"272,176": "BOTTOM_WALL_NW"
+		},
+		"leavy": {
+			"0,240+96,64": "TYPE1 DEFAULT"
+		},
+		"slopes": {
+			"128,304": "SLOPE_NORTH",
+			"144,288+16,48": "SLOPE_NORTH",
+
+			"128,256": "SLOPE_WEST_WALL_NE",
+			"128,272": "SLOPE_WEST",
+			"144,272": "SLOPE_WEST_WALL_NE",
+
+			"160,272": "SLOPE_EAST_WALL_NW",
+			"176,256": "SLOPE_EAST_WALL_NW",
+			"176,272": "SLOPE_EAST"
+		},
+		"more waterwalls": {
+			"0,544+32,32": "BOTTOM_WALL_NE",
+			"0,576+32,16": "BOTTOM_WALL_NORTH",
+			"0,592+32,32": "BOTTOM_WALL_NW",
+			"0,624+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"house (e.g. hermit)": {
+			"216,786+16,48": "WALL_NORTH DEFAULT",
+			"216,832": "BOTTOM_WALL_NORTH DEFAULT",
+			"286,976+96,48": "WALL_NORTH",
+			"248,770+16,78": "WALL_NORTH",
+			"272,656+16,96": "WALL_NORTH",
+			"272,640+32,144": "WALL_NORTH",
+			"304,736+32,112": "WALL_NORTH",
+			"336,706+80,32": "WALL_NORTH",
+			"288,976+96,48": "WALL_NORTH",
+			"0,848+146,16": "WALL_NORTH",
+			"80,822+48,32": "WALL_NORTH"
+		}
+	},
+	"arid.png": {
+		"seems copied from bergen trail": {
+		}
 	}
-
 }
