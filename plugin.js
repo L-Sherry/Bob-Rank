@@ -1414,6 +1414,10 @@ class BobMap extends BobRenderable {
 				for (const map of level.maps) {
 					if (map.tiles.path !== texture_path)
 						continue;
+					if (Number(map.distance) !== 1)
+						// TODO: render parallax maps.
+						// possibly in 2d.
+						continue;
 					// i don't think i have written so many
 					// imbricated fors in my life.
 					// maybe i'm just missing my dear bmi ?
