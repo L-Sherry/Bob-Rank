@@ -651,10 +651,28 @@ class BobGeo {
 	}
 	static make_quad_tex(tile_x_pos, tile_y_pos, total_width, total_height,
 			     tile_size_x, tile_size_y) {
+
+		// ok, here goes.
+		// we calculate texture coordinates. These are interpolated
+		// for each fragment. but the highest fragment will receive
+		// a pixel exactly representing the first pixel of the next
+		// tile... bad.  Most solutions revolves around "well, just
+		// put an extra pixel in yur texture when making yur atlas",
+		// but this is crap.
+		//
+		// however, we have the particularity to use nearest pixel
+		// filtering (to show off those pixels), so substracting half
+		// a pixel should be enough to prevent this.
+		//
+		// TODO: due to some early fuckupery, total_width and
+		// total_height are crap.
+		const OFFSET_FOR_HIGH = 1/1024;
 		const left = tile_x_pos / total_width;
-		const right = left + tile_size_x / total_width;
+		const right
+			= left + tile_size_x / total_width - OFFSET_FOR_HIGH;
 		const top_ = tile_y_pos / total_height;
-		const bottom = top_ + tile_size_y / total_height;
+		const bottom
+			= top_ + tile_size_y / total_height - OFFSET_FOR_HIGH;
 		//console.assert(left >= 0 && right <= 1);
 		//console.assert(top_ >= 0 && bottom <= 1);
 		return { topleft: [ left, top_ ],
