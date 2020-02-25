@@ -1758,14 +1758,20 @@ class BobEntities extends BobRenderable {
 			vertex_count += 6;
 		};
 
-		iterate_patch(src_quad_tex.offsetx, src_quad_tex.sizex,
+		// note: the src_quad_tex.quad_tex is total crap here.
+		const initial_offsetx
+			= (src_quad_tex.offsetx + cs.src.x) % image.width;
+		const initial_offsety
+			= (src_quad_tex.offsety + cs.src.y) % image.height;
+
+		iterate_patch(initial_offsetx, src_quad_tex.sizex,
 			      image.width, (src_x, src_size_x, dest_x) => {
 
 			const top_y_left = addvec(origin, x_vector(dest_x));
 			const top_y_right = addvec(top_y_left,
 						   x_vector(src_size_x));
 
-			iterate_patch(src_quad_tex.offsety, src_quad_tex.sizey,
+			iterate_patch(initial_offsety, src_quad_tex.sizey,
 				      image.height,
 				      (src_y, src_size_y, dest_y) => {
 				const top_y_to_top = y_vector(dest_y);
