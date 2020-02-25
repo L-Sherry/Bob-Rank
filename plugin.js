@@ -112,6 +112,9 @@ const mulmat = (mat1, mat2) => mat1.map(
 			[0, 0, 0, 0])
 );
 
+const getcol = (mat, colnum) => mat.map(line => line[colnum]);
+const mulscalar = (vec, scalar) => vec.map(x => x * scalar);
+
 const mulvec = (mat, vec) =>
 	mat.map(l => l.reduce((a,v,i)=> a + v * vec[i],0));
 
@@ -588,6 +591,12 @@ class BobGeo {
 		}
 	}
 
+	// make a quad vertex's positions
+	// x,y,z: position of bottom west north corner (yes BOTTOM)
+	// quad_type: vertical or horizontal
+	// size_x, size_y : size of the quad coordinate space
+	// coords: 2d coordinates in the quad coordinate.
+	//	   (0,0) is "top left", (size_x, size_y) is "bottom right"
 	static make_quad_raw(x, y, z, quad_type, size_x, size_y, coords) {
 		const ret = {};
 		let transform;
@@ -608,9 +617,7 @@ class BobGeo {
 			ret[pos] = transform(coords[pos][0], coords[pos][1]);
 		return ret;
 	}
-	static make_rotated_quad_vertex(base, quad_type, size,
-					pivot, rotation, scale) {
-		// rotation interferes with the fact that bottomleft is 0 ?
+	static make_rotated_quad_matrix(rotation, scale, pivot) {
 		const cosine = Math.cos(rotation);
 		const sine = Math.sin(rotation);
 		const rotate_mat = [ // scaling applied before rotation
@@ -622,8 +629,14 @@ class BobGeo {
 			// essentially calculates the trans matrix 3rd column
 			addvec(pivot, mulvec(rotate_mat, pivot.map(x => -x)));
 
-		// remember bottomleft is at (0,0) due to make_quad_raw.
-		// how about "bullshit"
+		return {pivot_shift, rotate_mat};
+	}
+	static make_rotated_quad_vertex(base, quad_type, size,
+					pivot, rotation, scale) {
+		const { pivot_shift, rotate_mat }
+			= BobGeo.make_rotated_quad_matrix(rotation, scale,
+							  pivot);
+
 		const topleft = pivot_shift;
 		const left_to_right_shift = mulvec(rotate_mat, [size[0], 0]);
 		const top_to_bottom_shift = mulvec(rotate_mat, [0, size[1]]);
@@ -1505,11 +1518,11 @@ class BobEntities extends BobRenderable {
 		this.blend_sprites_by_z = [];
 		this.textures_ranges.length = 0;
 	}
-	static do_overrides(cubesprite) {
+	static do_overrides(path, cubesprite) {
 		// I have LOADS of reserves on how the game classify ground
 		// and wall sprites.
 		// i will list them ALL HERE ! MUAHAHAHA !
-		const path = cubesprite.image.path.split("/");
+		path = path.split("/");
 		const override = walk_break_on_first(path_overrides, path);
 		if (override)
 			return override; // for now.
@@ -1525,16 +1538,21 @@ class BobEntities extends BobRenderable {
 		const by_texture = this.sprites_by_texture;
 		for (const sprite of spritearray) {
 			const cs = sprite.cubeSprite;
-			const image = cs.image;
-			// TODO: should be able to handle ig.ImagePattern
-			if (!(image && image.path && image.data)) {
+
+			let path;
+			let image;
+			if (cs.image instanceof ig.ImagePattern) {
+				path = cs.image.sourceImage.path;
+				image = cs.image.sourceImage.data;
+			} else if (cs.image && cs.image.path && cs.image.data) {
+				path = cs.image.path;
+				image = cs.image.data;
+			} else if (!(cs.image instanceof ig.ImageCanvasWrapper))
 				// FIXME: ImageCanvasWrapper will be hard to
 				// cache... but it's the majority of sprites ?
-				if (!(image instanceof ig.ImageCanvasWrapper))
-					console.log("strange sprite");
+				console.log("strange sprite");
+			if (!path)
 				continue;
-			}
-			const path = image.path;
 
 			let has_opaque = true;
 			let has_blending = false;
@@ -1549,18 +1567,17 @@ class BobEntities extends BobRenderable {
 
 			if (has_blending)
 				this.blend_sprites_by_z.push(
-					{ sprite });
+					{ sprite, path });
 
 			if (!has_opaque) {
-				tex_trove.add(path, image.data);
+				tex_trove.add(path, image);
 				continue;
 			}
 
 
 			let textureinfo = by_texture[path];
 			if (!textureinfo) {
-				const img = image.data;
-				const texture = tex_trove.add(path, img);
+				const texture = tex_trove.add(path, image);
 				textureinfo = by_texture[path] = {
 					texture,
 					sprites: []
@@ -1572,6 +1589,9 @@ class BobEntities extends BobRenderable {
 	// get a cubeSprite's source crops.
 	// replicate the dreaded calculation of SpriteDrawSlot.draw()
 	// without the z clippin' part
+	//
+	// we don't do flips here, the vertexes are supposed to do it.
+	// (but that's is infuriating ?)
 	static get_2d_src_crop(cubesprite, ground) {
 		const cs = cubesprite;
 		let offsetx = cs.gfxCut.left;
@@ -1644,10 +1664,127 @@ class BobEntities extends BobRenderable {
 	}
 	// return number of vertex added.
 	// merely calculates the sprite vertex from the src_quad_tex stuff
-	handle_one_draw(result_vector, src_quad_tex, is_ground, sprite) {
+	handle_basic_sprite(result_vector, pos, quad_type, src_quad_tex, cs) {
+		// normal sprite is normal.
+		const make_quad = BobGeo.make_rotated_quad_vertex.bind(BobGeo);
+
+		let quad_vertex = make_quad(pos, quad_type,
+					    [src_quad_tex.sizex,
+					    src_quad_tex.sizey],
+					    [cs.pivot.x || 0, cs.pivot.y || 0],
+					    cs.rotate || 0,
+					    [cs.scale.x, cs.scale.y]);
+
+		BobGeo.interleave_triangles(result_vector, quad_type,
+					    quad_vertex,
+					    src_quad_tex.quad_tex);
+		return 6;
+	}
+	// blit a tile repeatedly.
+	// (some smartass could say "well, let the graphic card do it !"
+	//  and they would probably be right)
+	handle_image_pattern(result_vector, pos, quad_type, src_quad_tex, cs) {
+		const image = cs.image;
+		// handle the dreaded image pattern
+
+		// TODO: should rename pivot_shift to "origin"
+		// (that's (0,0) rotated around the pivot)
+		const { pivot_shift, rotate_mat }
+			= BobGeo.make_rotated_quad_matrix(cs.rotate || 0,
+							  [cs.scale.x,
+							   cs.scale.y],
+							  [cs.pivot.x || 0,
+							   cs.pivot.y || 0]);
+		const origin = pivot_shift;
+		const x_vector = len => mulscalar(getcol(rotate_mat, 0), len);
+		const y_vector = len => mulscalar(getcol(rotate_mat, 1), len);
+
+		const iterate_patch = (initial_offset, total_size, patch_size,
+				       cb) => {
+			let size;
+			for (let i = 0; i < total_size; i+= size) {
+				const src_i = (i + initial_offset) % patch_size;
+				if (i + patch_size < total_size)
+					size = patch_size - src_i;
+				else
+					size = total_size - i;
+				cb(src_i, size, i);
+			}
+		};
+
+		const make_raw
+			= BobGeo.make_quad_raw.bind(BobGeo, ...pos, quad_type,
+						    src_quad_tex.sizex,
+						    src_quad_tex.sizey);
+		const make_raw_tex = BobGeo.make_quad_tex.bind(BobGeo);
+
+		let vertex_count = 0;
+
+		// the pattern to blit around is sourceX,sourceY+width,height
+		const blit_it = (src_x, src_y, size_x, size_y, vertexes) => {
+			const quad_vertexes = make_raw(vertexes);
+
+			// get the texture coordinate from the source.
+			const quad_tex
+				= make_raw_tex(image.sourceX + src_x,
+					       image.sourceY + src_y,
+					       image.sourceImage.data.width,
+					       image.sourceImage.data.height,
+					       size_x, size_y);
+
+			BobGeo.interleave_triangles(result_vector, quad_type,
+						    quad_vertexes, quad_tex);
+			vertex_count += 6;
+		};
+
+		iterate_patch(src_quad_tex.offsetx, src_quad_tex.sizex,
+			      image.width, (src_x, src_size_x, dest_x) => {
+
+			const top_y_left = addvec(origin, x_vector(dest_x));
+			const top_y_right = addvec(top_y_left,
+						   x_vector(src_size_x));
+
+			iterate_patch(src_quad_tex.offsety, src_quad_tex.sizey,
+				      image.height,
+				      (src_y, src_size_y, dest_y) => {
+				const top_y_to_top = y_vector(dest_y);
+				const topleft
+					= addvec(top_y_left, top_y_to_top);
+				const topright = addvec(top_y_right,
+							 top_y_to_top);
+				const top_to_bottom = y_vector(src_size_y);
+				const bottomleft
+					= addvec(topleft, top_to_bottom);
+				const bottomright
+					= addvec(topright, top_to_bottom);
+
+				blit_it(src_x, src_y, src_size_x, src_size_y,
+					{ topleft, topright, bottomleft,
+					  bottomright });
+			});
+
+		});
+		return vertex_count;
+	}
+	handle_one_sprite(result_vector, path, sprite) {
+		const cs = sprite.cubeSprite;
+		let is_ground = sprite.ground;
+		// i have some reserves on how the game classify ground
+		// sprites from wall sprites.
+		switch (BobEntities.do_overrides(path, cs)) {
+			case "ground":
+				is_ground = true;
+				break;
+			case "wall":
+				is_ground = false;
+				break;
+		}
+
+		const src_quad_tex
+			= BobEntities.get_src_quad_tex(cs, is_ground);
+
 		if (!src_quad_tex)
 			return 0;
-		const cs = sprite.cubeSprite;
 
 		// BobGeo want low x, high y, low z
 		let x = cs.pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
@@ -1675,36 +1812,18 @@ class BobEntities extends BobRenderable {
 		}
 		const quad_type
 			= is_ground ? "horizontal" : "vertical";
-		let quad_vertex;
-		//if (cs.rotate)
-		quad_vertex = BobGeo.make_rotated_quad_vertex(
-				[x, y, z], quad_type,
-				[src_quad_tex.sizex, src_quad_tex.sizey],
-				[cs.pivot.x || 0, cs.pivot.y || 0],
-				cs.rotate || 0,
-				[cs.scale.x, cs.scale.y]);
+		const image = cs.image;
+		if (image && image.path && image.data)
+			return this.handle_basic_sprite(result_vector,
+							[x, y, z], quad_type,
+							src_quad_tex, cs);
+		if (image instanceof ig.ImagePattern)
+			return this.handle_image_pattern(result_vector,
+							 [x, y, z], quad_type,
+							 src_quad_tex, cs);
 
-		BobGeo.interleave_triangles(result_vector, quad_type,
-					    quad_vertex, src_quad_tex.quad_tex);
-		return 6;
-	}
-	handle_one_sprite(result_vector, sprite) {
-		const cs = sprite.cubeSprite;
-		let is_ground = sprite.ground;
-		// i have some reserves on how the game classify ground
-		// sprites from wall sprites.
-		switch (BobEntities.do_overrides(cs)) {
-			case "ground":
-				is_ground = true;
-				break;
-			case "wall":
-				is_ground = false;
-				break;
-		}
-
-		const src = BobEntities.get_src_quad_tex(cs, is_ground);
-		return this.handle_one_draw(result_vector,
-					    src, is_ground, sprite);
+		console.assert(false, "not supported, how did you get there ?");
+		return 0;
 	}
 	finalize_opaque_sprites(result_vector, i) {
 		for (const path in this.sprites_by_texture) {
@@ -1713,6 +1832,7 @@ class BobEntities extends BobRenderable {
 
 			for (const sprite of texture.sprites)
 				i += this.handle_one_sprite(result_vector,
+							    path,
 							    sprite);
 
 			if (i === start_i)
@@ -1731,14 +1851,16 @@ class BobEntities extends BobRenderable {
 		this.blending_ranges.length = 0;
 		for (const blend_sprite of this.blend_sprites_by_z) {
 			const start = i;
+			const path = blend_sprite.path;
 			const cs = blend_sprite.sprite.cubeSprite;
 			i += this.handle_one_sprite(result_vector,
+						    path,
 						    blend_sprite.sprite);
 			const size = i - start;
 			if (!size)
 				continue;
 
-			const texture = this.texture_trove.get(cs.image.path);
+			const texture = this.texture_trove.get(path);
 			const add = (blendmode, alpha,
 				     color, color_alpha) => {
 				if (!color)
