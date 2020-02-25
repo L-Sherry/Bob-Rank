@@ -1510,22 +1510,43 @@ const walk_break_on_first = (object, path) => {
 };
 
 class BobEntities extends BobRenderable {
-	constructor(context, locations_opaque, locations_blended) {
+	constructor(context, locations_opaque, locations_blended,
+		    moretileinfo) {
 		super(context, locations_opaque, locations_blended);
+		this.moretileinfo = moretileinfo;
 	}
 	clear() {
 		this.sprites_by_texture = {};
 		this.blend_sprites_by_z = [];
 		this.textures_ranges.length = 0;
 	}
-	static do_overrides(path, cubesprite) {
+	do_overrides(path, cubesprite) {
 		// I have LOADS of reserves on how the game classify ground
 		// and wall sprites.
 		// i will list them ALL HERE ! MUAHAHAHA !
-		path = path.split("/");
-		const override = walk_break_on_first(path_overrides, path);
+		const splitted = path.split("/");
+		const override = walk_break_on_first(path_overrides, splitted);
 		if (override)
 			return override; // for now.
+
+		const tileinfo = this.moretileinfo.get(path);
+		if (tileinfo.found) {
+			let src_x = cubesprite.src.x;
+			let src_y = cubesprite.src.y;
+			if (cubesprite.image instanceof ig.ImagePattern) {
+				src_x = cubesprite.image.sourceX;
+				src_y = cubesprite.image.sourceY;
+			}
+			const tiles_per_line = 512 / 16;
+			const tile_x = Math.floor(src_x / 16);
+			const tile_y = Math.floor(src_y / 16);
+			const tileno = tile_x + tile_y * tiles_per_line;
+			const quad_type = tileinfo.get_type(tileno);
+			if (quad_type.indexOf("WALL") !== -1)
+				// FIXME: we could return more, and waterfallz
+				// need it.
+				return "wall";
+		}
 
 		if (!cubesprite.size.z)
 			return "ground";
@@ -1771,7 +1792,8 @@ class BobEntities extends BobRenderable {
 		let is_ground = sprite.ground;
 		// i have some reserves on how the game classify ground
 		// sprites from wall sprites.
-		switch (BobEntities.do_overrides(path, cs)) {
+		// FIXME: this affects ground removal, is that intended ?
+		switch (this.do_overrides(path, cs)) {
 			case "ground":
 				is_ground = true;
 				break;
@@ -2034,7 +2056,8 @@ class BobRender {
 				      moretileinfo);
 		this.entities = new BobEntities(this.context,
 						opaque_locations,
-						blend_locations);
+						blend_locations,
+						moretileinfo);
 	}
 
 	set_uniforms(uniforms) {
@@ -2303,7 +2326,8 @@ class MoreTileInfos {
 				for (const tileno in set_info.by_tileno)
 					set_by_tileno[tileno] = set_info;
 			}
-			const info = { by_tileno: set_by_tileno, sets };
+			const info = { by_tileno: set_by_tileno, sets,
+				       found: true};
 
 			info.get_type
 				= MoreTileInfos.get_type.bind(null, info);
@@ -2330,7 +2354,8 @@ class MoreTileInfos {
 		let ret = this.tileinfo[path];
 		if (!ret) {
 			ret = { get_type: () => "BORDER_NORTH",
-				get_default: () => null };
+				get_default: () => null,
+				found: false };
 		}
 		return ret;
 	}
