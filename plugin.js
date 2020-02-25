@@ -348,7 +348,7 @@ const blend_lighter_constant = (context, constant) => {
 // do alpha blending the way you are used to, with alpha = constant
 const blend_constant = (context, constant) => {
 	set_blending(context, "FUNC_ADD",
-			"CONSTANT_ALPHA", "ONE_MINUS_CONSTANT_ALPHA", constant);
+		     "CONSTANT_ALPHA", "ONE_MINUS_CONSTANT_ALPHA", constant);
 };
 
 // maybe there is a way to iteratize it ?
