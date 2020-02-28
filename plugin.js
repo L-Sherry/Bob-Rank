@@ -1100,7 +1100,7 @@ class BobMap extends BobRenderable {
 							      my_tile.map_y);
 				console.assert(my_heightinfo, "i'm nowhere");
 				my_heightinfo.z = my_tile.map_z;
-				my_heightinfo.type = my_tile.type;
+				my_heightinfo.type = my_tile.quad_type;
 				my_heightinfo.tile = my_tile.tile;
 			}
 			last_tile = my_tile;
@@ -1344,7 +1344,7 @@ class BobMap extends BobRenderable {
 
 	draw_walls(result_vector, map_info) {
 
-		const { min_z_map } = map_info;
+		const { min_map_z } = map_info;
 		// FIXME: need most negative height
 		const z_or_zmin = z => z !== null ? z : -4;
 
@@ -1425,7 +1425,7 @@ class BobMap extends BobRenderable {
 					--map_x;
 					tile = left.tile;
 				}
-				if (to_z < min_z_map)
+				if (to_z < min_map_z)
 					return; // lower level already did it
 				const wall_type = wall_types[key];
 				if (!wall_type)
