@@ -201,7 +201,7 @@
 			"0,64+96,96": "TYPE1 DEFAULT"
 		},
 		"wallz": {
-			"0,320": "BOTTOM_WALL_NE",
+			"0,64": "BOTTOM_WALL_NE",
 			"80,64+32,16": "BOTTOM_WALL_NORTH",
 			"176,64": "BOTTOM_WALL_NW",
 
