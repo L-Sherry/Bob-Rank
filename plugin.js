@@ -276,7 +276,8 @@ const create_texture = (context, image) => {
 			      context.CLAMP_TO_EDGE);
 	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T,
 			      context.CLAMP_TO_EDGE);
-	// too small ? use linear... not sure how much time this will happen.
+	// "too small ? use linear... not sure how much time this will happen."
+	// turns out it happens a lot. But nearest is way too old-school ugly.
 	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER,
 			      context.LINEAR);
 	// show me those pixels, bro
@@ -2201,7 +2202,7 @@ class BobRender {
 		void main() {
 			// FIXME: find what control interpolation in there.
 			gl_FragColor = texture2D(colorsampler, texcoord2);
-			if (gl_FragColor.a == 0.)
+			if (gl_FragColor.a < 0.5)
 				discard;
 			// gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
 		}
@@ -2220,7 +2221,7 @@ class BobRender {
 			mediump vec3 blended = mix(color.rgb, blend_color.rgb,
 						   blend_color.a);
 
-			gl_FragColor = vec4(blended, 1);
+			gl_FragColor = vec4(blended, color.a);
 		}
 		`);
 
