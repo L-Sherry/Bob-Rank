@@ -1581,6 +1581,8 @@ class BobMap extends BobRenderable {
 		const texture_obj = { order: []};
 		const add_texture_of_level = (level) => {
 			for (const map of level.maps) {
+				if (!(map instanceof ig.MAP.Background))
+					continue;
 				if (map.tiles.path in texture_obj)
 					continue;
 				const path = map.tiles.path;
