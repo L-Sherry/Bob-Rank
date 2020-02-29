@@ -658,7 +658,8 @@
 			"0,80": "BOTTOM_WALL_NE",
 			"80,80": "BOTTOM_WALL_NW",
 			"0,160": "BOTTOM_WALL_NE",
-			"80,160": "BOTTOM_WALL_NW"
+			"80,160": "BOTTOM_WALL_NW",
+			"144,96+32,16": "BOTTOM_WALL_NORTH"
 		},
 		"waterwalls": {
 			"96,144": "BOTTOM_WALL_NE",
@@ -676,7 +677,7 @@
 		"stairs ?": {
 			"464,0+48,32": "SLOPE_NORTH"
 		},
-		"bamboos": {
+		"bamboos (FIXME: need special support for them)": {
 			"0,176+96,96": "TYPE1 DEFAULT"
 		},
 		"house": {
@@ -720,6 +721,8 @@
 		},
 
 		"temple": {
+			"464,0+48,32": "SLOPE_NORTH",
+
 			"64,864+64,64": "GROUND",
 			"0,832+64,32": "GROUND",
 			"64,832": "BORDER_NORTH",
