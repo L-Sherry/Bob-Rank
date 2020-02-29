@@ -1543,6 +1543,9 @@ class BobMap extends BobRenderable {
 
 			layerview.tex_range.size
 				= current_i - layerview.tex_range.start;
+			if (!layerview.tex_range.size) {
+				console.assert("layerview without tiles ?");
+			}
 		}
 		return current_i;
 	}
@@ -1662,6 +1665,8 @@ class BobMap extends BobRenderable {
 			if (blending_mode !== blended)
 				continue;
 			layerview.tex_range.alpha = alpha;
+			if (!layerview.tex_range.size)
+				continue;
 
 			ranges_to_draw.push(layerview.tex_range);
 		}
