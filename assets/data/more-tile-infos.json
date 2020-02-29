@@ -1,5 +1,20 @@
 {
 	"autumn-outside.png": {
+		"grounds": {
+			"0,0+144,48": "GROUND",
+			"144,16+80,32": "GROUND",
+			"16,96": "GROUND",
+			"64,96": "GROUND",
+			"32,208": "GROUND",
+			"32,240": "GROUND"
+		},
+		"bridge (FIXME: find north border ?)": {
+			"64,336+80,48": "GROUND",
+			"32,496+32,16": "GROUND"
+		},
+		"brickwalls (are they entities or map stuff ?)": {
+		},
+
 		"TODO separate in sets": {
 		"0,64": "IGNORE_WALL_NORTH",
 		"16,64": "IGNORE_WALL_NORTH",
@@ -197,6 +212,28 @@
 		"didn't do the autumn fall wallz": {}
 	},
 	"bergen-trail.png": {
+		"grounds": {
+			"0,0+352,64":"GROUND",
+			"144,256+32,16": "GROUND",
+			"128,288+32,16": "GROUND",
+			"128,320+16,32": "GROUND"
+		},
+		"tentroof": {
+			"96,336+80,48": "GROUND"
+		},
+		"bridges or those tiles things (FIXME find north border ?)": {
+			"176,352+32,16": "GROUND",
+			"208,320+80,48": "GROUND",
+			"288,336+32,32": "GROUND",
+			"288,380+32,64": "GROUND",
+			"320,432+16,32": "GROUND",
+			"320,368+32,64": "GROUND",
+
+			"320,336+32,32": "GROUND",
+			"352,320+16,16": "GROUND"
+		},
+		"FIXME: do i need the ice thingies in some caves ?": {
+		},
 		"rocky": {
 			"0,64+96,96": "TYPE1 DEFAULT"
 		},
@@ -290,11 +327,567 @@
 			"336,706+80,32": "WALL_NORTH",
 			"288,976+96,48": "WALL_NORTH",
 			"0,848+146,16": "WALL_NORTH",
-			"80,822+48,32": "WALL_NORTH"
+			"80,822+48,32": "WALL_NORTH",
+
+			"32,608+48,32": "GROUND",
+			"80,624+32,16": "GROUND",
+			"0,640+64,64": "GROUND",
+
+			"64,640": "BORDER_NORTH",
+			"64,656": "BORDER_SOUTH",
+			"64,672": "BORDER_NORTH",
+			"64,686": "BORDER_SOUTH",
+			"80,640": "BORDER_WEST",
+			"80,656": "BORDER_EAST",
+			"80,672": "BORDER_WEST",
+			"80,688": "BORDER_EAST",
+			"96,640+16,64": "BORDER_WEST",
+			"112,640+16,64": "BORDER_EAST",
+
+			"352,640+48,64": "GROUND"
+		},
+		"pavementz": {
+			"288,576+224,64": "GROUND",
+			"256,608+32,32": "GROUND"
+		},
+		"waterfalls": {
+			"32,528+64,32": "WALL_NORTH",
+			"32,560+64,16": "BOTTOM_WALL_NORTH",
+			"96,528+64,16": "BORDER_SE",
+			"96,544+64,32": "WALL_NW",
+			"96,576+64,16": "BOTTOM_WALL_NW",
+
+			"160,528+64,16": "BORDER_SW",
+			"160,544+64,32": "WALL_NE",
+			"160,576+64,16": "BOTTOM_WALL_NE"
 		}
 	},
 	"arid.png": {
-		"seems copied from bergen trail": {
+		"grounds": {
+			"0,0+304,64": "GROUND",
+			"480,0+32,80": "GROUND"
+		},
+		"rocky": {
+			"0,64+96,96": "TYPE1 DEFAULT"
+		},
+		"wallz": {
+			"0,64": "BOTTOM_WALL_NE",
+			"80,64+32,16": "BOTTOM_WALL_NORTH",
+			"176,64": "BOTTOM_WALL_NW",
+
+			"0,144": "BOTTOM_WALL_NE",
+
+			"80,144": "BOTTOM_WALL_NW",
+
+			"0,160+32,16": "WALL_NE",
+			"32,160+32,16": "WALL_NORTH DEFAULT",
+			"64,160+32,16": "WALL_NW"
+		},
+		"sandy": {
+			"96,64+96,80": "TYPE1 DEFAULT",
+			"112,144+16,32": "BORDER_WEST",
+			"128,144+32,16": "BORDER_NORTH",
+			"128,160+32,16": "BORDER_SOUTH",
+			"160,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+		"leavy": {
+			"192,64+96,80": "TYPE1 DEFAULT",
+			"208,144+16,32": "BORDER_WEST",
+			"224,144+32,16": "BORDER_NORTH",
+			"224,160+32,16": "BORDER_SOUTH",
+			"256,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+
+		"spikes down": {
+			"0,176": "WALL_NE",
+			"0,192": "BOTTOM_WALL_NE",
+
+			"16,176": "WALL_NW",
+			"16,192": "BOTTOM_WALL_NW",
+
+			"32,176": "BOTTOM_WALL_NE",
+			"48,192": "BOTTOM_WALL_NW",
+
+			"64,176+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"spikes up": {
+			"32,192+32,32": "WALL_NORTH",
+			 "0,208": "WALL_NE",
+			"16,208": "WALL_NW",
+			 "0,224": "BOTTOM_WALL_NE",
+			"16,224": "BOTTOM_WALL_NW"
+		},
+		"purplewaterwalls": {
+			"480,112+32,32": "BOTTOM_WALL_NE",
+			"480,144+32,16": "BOTTOM_WALL_NORTH",
+			"448,160+64,32": "BOTTOM_WALL_NW",
+			"480,192+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"platformz": {
+			"0,256+16,48": "WALL_NE",
+			"16,256+16,48": "WALL_NORTH",
+			"32,256+16,48": "WALL_NW",
+			"0,304": "BOTTOM_WALL_NE",
+			"16,304": "BOTTOM_WALL_NORTH",
+			"32,304": "BOTTOM_WALL_NW",
+			"48,304+80,16": "WALL_NORTH",
+			"0,320+80,80": "TYPE2 DEFAULT",
+			"80,320+32,16": "BORDER_SOUTH",
+			"80,336+32,80": "WALL_NORTH",
+
+			"48,400": "BOTTOM_WALL_NE",
+			"64,400": "BOTTOM_WALL_NW",
+			"48,416+16,48": "WALL_NE",
+			"64,416+16,48": "WALL_NW",
+
+			"80,400+48,16": "WALL_NORTH",
+			"80,416+48,16": "BOTTOM_WALL_NORTH",
+			"128,400": "WALL_NW",
+			"128,416": "BOTTOM_WALL_NW",
+			"144,400": "WALL_NE",
+			"144,416": "BOTTOM_WALL_NE"
+		},
+		"birdges": {
+			"208,320+80,48": "GROUND",
+			"288,336+32,112": "GROUND"
+		}
+	},
+	"heat-area.png": {
+		"grounds": {
+			"0,0+512,64": "GROUND",
+			"464,64+48,64": "GROUND",
+			"384,128+128,32": "GROUND"
+		},
+		"sandy": {
+			"0,64+96,96": "TYPE1 DEFAULT"
+		},
+		"wallz": {
+			"0,64": "BOTTOM_WALL_NE",
+			"80,64+32,16": "BOTTOM_WALL_NORTH",
+			"176,64": "BOTTOM_WALL_NW",
+
+			"0,144": "BOTTOM_WALL_NE",
+
+			"80,144": "BOTTOM_WALL_NW",
+
+			"0,160+32,16": "WALL_NE",
+			"32,160+32,16": "WALL_NORTH DEFAULT",
+			"64,160+32,16": "WALL_NW"
+		},
+
+		"spikes down": {
+			"0,176": "WALL_NE",
+			"0,192": "BOTTOM_WALL_NE",
+
+			"16,176": "WALL_NW",
+			"16,192": "BOTTOM_WALL_NW",
+
+			"32,176": "BOTTOM_WALL_NE",
+			"48,192": "BOTTOM_WALL_NW",
+
+			"64,176+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"spikes up": {
+			"32,192+32,32": "WALL_NORTH",
+			 "0,208": "WALL_NE",
+			"16,208": "WALL_NW",
+			 "0,224": "BOTTOM_WALL_NE",
+			"16,224": "BOTTOM_WALL_NW"
+		},
+		"sandrocky": {
+			"96,64+96,80": "TYPE1 DEFAULT",
+			"112,144+16,32": "BORDER_WEST",
+			"128,144+32,16": "BORDER_NORTH",
+			"128,160+32,16": "BORDER_SOUTH",
+			"160,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+		"yellowgrassy": {
+			"192,64+96,80": "TYPE1 DEFAULT",
+			"208,144+16,32": "BORDER_WEST",
+			"224,144+32,16": "BORDER_NORTH",
+			"224,160+32,16": "BORDER_SOUTH",
+			"256,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+		"leavy": {
+			"288,64+96,80": "TYPE1 DEFAULT",
+			"304,144+16,32": "BORDER_WEST",
+			"320,144+32,16": "BORDER_NORTH",
+			"320,160+32,16": "BORDER_SOUTH",
+			"352,144+16,32": "BORDER_EAST",
+
+			"32,160+32,16": "WALL_NORTH DEFAULT"
+		},
+		"abyss": {
+			"96,160+16,32": "WALL_NE",
+			"112,176+16,32": "WALL_NE",
+			"128,176+32,32": "WALL_NORTH",
+			"160,176+16,32": "WALL_NW",
+			"176,160+16,32": "WALL_NW"
+		},
+		"waterwalls": {
+			"0,272+32,32": "BOTTOM_WALL_NE",
+			"0,302+32,16": "BOTTOM_WALL_NORTH",
+			"0,320+32,32": "BOTTOM_WALL_NW",
+			"0,352+32,16": "BOTTOM_WALL_NORTH",
+
+			"192,176": "BOTTOM_WALL_NE",
+			"208,192": "BOTTOM_WALL_NE",
+			"224,192+32,16": "BOTTOM_WALL_NORTH",
+			"256,192": "BOTTOM_WALL_NW",
+			"272,176": "BOTTOM_WALL_NW"
+		},
+		"slopes (unsure)": {
+			"32,224": "SLOPE_NORTH",
+			"32,240": "SLOPE_WEST_WALL_NE",
+			"32,256+16,32": "SLOPE_WEST",
+			"48,240": "SLOPE_EAST_WALL_NW",
+			"48,256+16,32": "SLOPE_EAST"
+		},
+		"bridges": {
+			"64,432+80,48": "GROUND"
+		},
+		"pavements": {
+			"96,608+64,128": "GROUND",
+			"160,608+64,64": "GROUND",
+			"160,674+32,32": "GROUND",
+			"96,576+64,32": "WALL_NORTH",
+			"80,560+48,16": "BOTTOM_WALL_NORTH"
+		},
+		"moregrounds": {
+			"386,576+128,32": "GROUND"
+		}
+	},
+	"jungle.png": {
+		"grounds": {
+			"0,0+512,32": "GROUND",
+			"304,32+64,16": "GROUND",
+			"482,32+32,96": "GROUND"
+		},
+		"leavy": {
+			"0,64+96,96": "TYPE1 DEFAULT"
+		},
+		"spikes down": {
+			"0,176": "WALL_NE",
+			"0,192": "BOTTOM_WALL_NE",
+
+			"16,176": "WALL_NW",
+			"16,192": "BOTTOM_WALL_NW",
+
+			"32,176": "BOTTOM_WALL_NE",
+			"48,192": "BOTTOM_WALL_NW",
+
+			"64,176+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"spikes up": {
+			"32,192+32,32": "WALL_NORTH",
+			 "0,208": "WALL_NE",
+			"16,208": "WALL_NW",
+			 "0,224": "BOTTOM_WALL_NE",
+			"16,224": "BOTTOM_WALL_NW"
+		},
+		"deadtree": {
+			"96,64+96,96": "TYPE1 DEFAULT",
+			"96,144": "BOTTOM_WALL_NE",
+			"176,144": "BOTTOM_WALL_NW"
+		},
+		"highgrass": {
+			"192,64+96,80": "TYPE1 DEFAULT",
+			"32,128": "WALL_NORTH DEFAULT"
+		},
+		"rocky": {
+			"286,64+96,80": "TYPE1 DEFAULT",
+			"32,128": "WALL_NORTH DEFAULT"
+		},
+		"leavy2": {
+			"382,32+96,80": "TYPE1 DEFAULT",
+			"32,128": "WALL_NORTH DEFAULT"
+		},
+		"alivetreeish": {
+			"384,96+16,32": "BOTTOM_WALL_NORTH",
+			"400,112+64,32": "BOTTOM_WALL_NORTH",
+			"464,96+16,32": "BOTTOM_WALL_NORTH",
+			"400,144+64,32": "WALL_NORTH"
+		},
+		"abyss": {
+			"96,160+16,32": "WALL_NE",
+			"112,176+16,32": "WALL_NE",
+			"128,176+32,32": "WALL_NORTH",
+			"160,176+16,32": "WALL_NW",
+			"176,160+16,32": "WALL_NW"
+
+		},
+		"waterwallz": {
+			"192,176": "BOTTOM_WALL_NE",
+			"208,192": "BOTTOM_WALL_NE",
+			"224,192+32,16": "BOTTOM_WALL_NORTH",
+			"256,192": "BOTTOM_WALL_NW",
+			"272,176": "BOTTOM_WALL_NW",
+			
+			"0,272+32,32": "BOTTOM_WALL_NE",
+			"0,302+32,16": "BOTTOM_WALL_NORTH",
+			"0,320+32,32": "BOTTOM_WALL_NW",
+			"0,352+32,16": "BOTTOM_WALL_NORTH"
+		},
+		"largetree (is it a prop ?)": {
+			"32,240+44,144": "WALL_NORTH",
+			"176,286+16,96": "WALL_NORTH"
+		},
+		"solidbridges (the wooden ones are props)": {
+			"432,464+80,48": "GROUND",
+			"432,464+80,48": "GROUND"
+		},
+		"maybe need some of the building for the entrance": {
+		}
+	},
+	"forest.png": {
+		"grounds": {
+			"0,0+302,64": "GROUND",
+			"302,0+160,32": "GROUND",
+			"0,64+69,16": "GROUND"
+		},
+		"leavy": {
+			"0,80+96,96": "TYPE1 DEFAULT",
+			"0,80": "BOTTOM_WALL_NE",
+			"80,80": "BOTTOM_WALL_NW",
+			"0,160": "BOTTOM_WALL_NE",
+			"80,160": "BOTTOM_WALL_NW"
+		},
+		"waterwalls": {
+			"96,144": "BOTTOM_WALL_NE",
+			"112,160": "BOTTOM_WALL_NE",
+			"128,160+32,16": "BOTTOM_WALL_NW",
+			"160,160": "BOTTOM_WALL_NW",
+			"172,144": "BOTTOM_WALL_NW"
+		},
+		"woddenbridges": {
+			"208,64+32,32": "BOTTOM_WALL_NORTH"
+		},
+		"bigasslily": {
+			"256,64+48,40": "GROUND"
+		},
+		"stairs ?": {
+			"464,0+48,32": "SLOPE_NORTH"
+		},
+		"bamboos": {
+			"0,176+96,96": "TYPE1 DEFAULT"
+		},
+		"house": {
+			"0,412+180,64": "WALL_NORTH",
+			"64,480+144,32": "WALL_NORTH",
+			"176,400+160,16": "WALL_NORTH",
+			"208,384+96,16": "WALL_NORTH",
+			"240,368+32,16": "WALL_NORTH"
+		},
+		"slopes": {
+			"320,640+32,16": "GROUND",
+			"320,656": "SLOPE_EAST_WALL_NW",
+			"336,656": "SLOPE_WEST_WALL_NE",
+			"320,672": "SLOPE_WEST_WALL_NE",
+			"336,672": "SLOPE_EAST_WALL_NW",
+
+			"320,688": "SLOPE_WEST",
+			"336,688": "SLOPE_EAST",
+
+			"320,702": "SLOPE_WEST_BORDER_NE",
+			"336,702": "SLOPE_EAST_BORDER_NW",
+
+			"304,672": "GROUND",
+			"304,688": "SLOPE_NORTH",
+			"304,702": "GROUND",
+			
+			"352,800": "WALL_NORTH",
+			"352,816": "SLOPE_WEST"
+		},
+		"bridgelike (really needed ?)": {
+			"144,702+48,48": "GROUND",
+			"192,720+32,16": "GROUND",
+			"224,702+32,32": "GROUND"
+
+		},
+		"waterwalls": {
+			"0,608+32,32": "BOTTOM_WALL_NE",
+			"0,656+32,32": "BOTTOM_WALL_NW",
+			"0,640+32,16": "BOTTOM_WALL_NORTH",
+			"0,688+32,16": "BOTTOM_WALL_NORTH"
+		},
+
+		"temple": {
+			"64,864+64,64": "GROUND",
+			"0,832+64,32": "GROUND",
+			"64,832": "BORDER_NORTH",
+			"64,848": "BORDER_SOUTH",
+			"80,832+32,16": "BORDER_WEST",
+			"80,848": "BORDER_EAST",
+			"96,848": "BORDER_WEST",
+			"112,832": "BORDER_EAST",
+
+			"32,864": "BORDER_NORTH",
+			"32,880": "BORDER_SOUTH",
+
+			"128,832": "WALL_NORTH",
+			"128,848": "WALL_NORTH DEFAULT",
+			"128,864+48,32": "WALL_NORTH",
+
+			"0,896": "SLOPE_WEST_WALL_NORTH",
+			"0,880": "SLOPE_WEST",
+			"0,864": "SLOPE_WEST_BORDER_NE",
+
+			"16,896": "SLOPE_EAST_WALL_NORTH",
+			"16,880": "SLOPE_EAST",
+			"16,864": "SLOPE_EAST_BORDER_NW",
+
+			"32,896": "SLOPE_NORTH",
+
+			"48,896+16,32": "SLOPE_NORTH",
+
+			"128,912": "SLOPE_WEST_BORDER_NE",
+			"128,928": "SLOPE_WEST",
+			"128,944": "SLOPE_WEST_WALL_NORTH",
+
+			"144,912": "SLOPE_EAST_BORDER_NW",
+			"144,928": "SLOPE_EAST",
+			"144,944": "SLOPE_EAST_WALL_NORTH",
+
+
+			"172,864": "SLOPE_EAST_BORDER_NW",
+			"172,880": "SLOPE_EAST",
+			"172,896": "SLOPE_EAST_WALL_NORTH",
+
+			"188,864": "SLOPE_WEST_BORDER_NE",
+			"188,880": "SLOPE_WEST",
+			"188,896": "SLOPE_WEST_WALL_NORTH"
+		},
+		"platform thingies (underground temple ?)": {
+		},
+		"more pavements": {
+			"0,992+64,32": "GROUND",
+			"64,992": "BORDER_NORTH",
+			"64,1008": "BORDER_SOUTH",
+			"80,992": "BORDER_WEST",
+			"80,1008": "BORDER_EAST",
+			"96,992+16,32": "BORDER_WEST",
+			"112,992+16,32": "BORDER_EAST"
+		},
+		"waterfalls": {
+			"320,880+64,32": "WALL_NORTH",
+			"320,912+64,16": "BOTTOM_WALL_NORTH",
+
+			"382,880+64,16": "BORDER_SE",
+			"382,896+64,16": "WALL_NW",
+			"382,912+64,16": "BOTTOM_WALL_NW",
+
+			"448,880+64,16": "BORDER_SE",
+			"448,896+64,16": "WALL_NW",
+			"448,912+64,16": "BOTTOM_WALL_NW"
+		}
+	},
+	"cave.png": {
+		"grounds": {
+			"0,0+296,48": "GROUND"
+		},
+		"rocky": {
+			"0,64+96,96": "TYPE1 DEFAULT",
+			"0,48+16,32": "BOTTOM_WALL_NE",
+			"80,48+16,32": "BOTTOM_WALL_NW",
+			
+			"0,144": "BOTTOM_WALL_NORTH",
+			"0,160+32,16": "WALL_NE",
+			"32,160+32,16": "WALL_NORTH",
+			"64,160+32,16": "WALL_NW",
+			"0,176+32,16": "BOTTOM_WALL_NW",
+			"64,176+32,16": "BOTTOM_WALL_NE",
+			
+			"64,192+16,48": "BOTTOM_WALL_NE",
+			"80,192+16,48": "BOTTOM_WALL_NW",
+			"64,240+32,16": "WALL_NORTH",
+
+			"0,192+32,48": "WALL_NORTH",
+			"0,240+32,16": "BOTTOM_WALL_NORTH",
+
+			"32,192": "WALL_NE",
+			"32,208": "BOTTOM_WALL_NE",
+			"48,192": "WALL_NW",
+			"48,208": "BOTTOM_WALL_NW",
+
+			"32,224": "WALL_NE",
+			"48,224": "WALL_NW",
+			"32,240": "BOTTOM_WALL_NE",
+			"48,240": "BOTTOM_WALL_NW"
+		},
+		"abysslike": {
+			"96,64+96,112": "TYPE1 DEFAULT"
+		},
+		"abysslike2 wtf": {
+			"96,176+96,80": "TYPE1"
+		},
+		"rocky2": {
+			"192,64+96,80": "TYPE1 DEFAULT",
+			"192,144+32,16": "BORDER_SE",
+			"224,144+32,16": "WALL_NORTH",
+			"256,144+32,16": "BORDER_SW"
+		},
+
+		"level changes": {
+			"192,208+112,32": "GROUND"
+		},
+
+		"waterwalls": {
+			"384,112": "BOTTOM_WALL_NE",
+			"400,128": "BOTTOM_WALL_NE",
+			"416,128+32,16": "BOTTOM_WALL_NORTH",
+			"448,128": "BOTTOM_WALL_NW",
+			"464,112": "BOTTOM_WALL_NW",
+
+			"480,96+32,32": "BOTTOM_WALL_NE",
+			"480,128+32,16": "BOTTOM_WALL_NORTH",
+			"480,144+32,32": "BOTTOM_WALL_NW",
+			"480,176+32,16": "BOTTOM_WALL_NORTH"
+		},
+
+		"waterfalls": {
+			"320,224+64,32": "WALL_NORTH",
+			"320,256+64,16": "BOTTOM_WALL_NORTH",
+
+			"384,224+64,16": "BORDER_SE",
+			"384,240+64,32": "WALL_NW",
+			"384,272+64,16": "BOTTOM_WALL_NW",
+
+			"448,224+64,16": "BORDER_SW",
+			"448,240+64,32": "WALL_NE",
+			"448,272+64,16": "BOTTOM_WALL_NE"
+		},
+
+		"slopes": {
+			"48,384+32,16": "GROUND",
+			"48,400": "SLOPE_EAST_WALL_NW",
+			"64,400": "SLOPE_WEST_WALL_NE",
+
+			"80,384": "SLOPE_WEST_WALL_NE",
+			"80,400": "SLOPE_WEST",
+			"80,416": "SLOPE_WEST_BORDER_NE",
+
+			"96,384": "SLOPE_EAST_WALL_NW",
+			"96,400": "SLOPE_EAST",
+			"96,416": "SLOPE_EAST_BORDER_NW",
+
+			"112,384": "GROUND",
+			"112,400": "SLOPE_NORTH",
+			"112,416": "GROUND"
+		},
+
+		"more pavements": {
+			"0,512+128,64": "GROUND"
+		},
+		"lilies": {
+			"256,544+80,32": "GROUND"
 		}
 	}
 }
