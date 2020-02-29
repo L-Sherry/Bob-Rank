@@ -467,10 +467,13 @@ class BobGeo {
 					z + zshift];
 			break;
 		case "SLOPE_WEST":
+		case "SLOPE_WEST_WALL_NORTH":
+			// FIXME: handle slope/wall mixins.
 			ret.topleft[2] += size_y;
 			ret.bottomleft[2] += size_y;
 			break;
 		case "SLOPE_EAST":
+		case "SLOPE_EAST_WALL_NORTH":
 			ret.topright[2] += size_y;
 			ret.bottomright[2] += size_y;
 			break;
@@ -562,6 +565,8 @@ class BobGeo {
 		case "BORDER_NE":
 		case "SLOPE_WEST_BORDER_NE":
 		case "SLOPE_EAST_BORDER_NW":
+		case "SLOPE_WEST_WALL_NORTH":
+		case "SLOPE_EAST_WALL_NORTH":
 		case "SLOPE_WEST":
 		case "SLOPE_EAST":
 		case "SLOPE_NORTH":
@@ -2579,6 +2584,8 @@ class MoreTileInfos {
 		case "BORDER_WEST":
 		case "SLOPE_WEST":
 		case "SLOPE_EAST":
+		case "SLOPE_EAST_WALL_NORTH":
+		case "SLOPE_WEST_WALL_NORTH":
 		case "GROUND":
 			return "keepz_north"; // keep z and go north
 		case "WALL_NORTH":
