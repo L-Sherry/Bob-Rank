@@ -2139,6 +2139,10 @@ class BobEntities extends BobRenderable {
 			const lighter_color = cs.lighterOverlay.color;
 			if (lighter_color) {
 				const color = get_color(lighter_color);
+				// FIXME: this is appantly broken, shoot frozen
+				// water bubble to test.
+				// It looks like we shouldn't draw the base
+				// sprite, but i don't understand why.
 				add("lighter", alpha_base,
 				    color, Number(cs.lighterOverlay.alpha));
 			}
