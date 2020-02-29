@@ -1276,10 +1276,10 @@ class BobMap extends BobRenderable {
 		return draw_map;
 	}
 
-	handle_tile(result_vector, tileno, draw_info) {
+	draw_tile(result_vector, tileno, draw_info, map_info) {
 		if (tileno === -1)
 			return;
-		const { map_x, map_y, map_z, quad_type, map_info } = draw_info;
+		const { map_x, map_y, map_z, quad_type } = draw_info;
 		const { tilesize } = map_info;
 		const x = map_x * tilesize;
 		const y = map_y * tilesize + tilesize;
@@ -1328,9 +1328,14 @@ class BobMap extends BobRenderable {
 			tile_pos.map_info.object_map === null
 			&& tile_pos.map_info.z_min === level
 		);
+
+		// note: we need the map_info of the current map, not the
+		// map_info of the map used by the draw map algorithm (which
+		// may not be the same)
+		const map_info = this.get_mapinfo(map, level, level + 42);
 		const get_tile = tiles => tiles.find(tile_has_level);
 
-		const handle_tile = this.handle_tile.bind(this, result_vector);
+		const draw_tile = this.draw_tile.bind(this, result_vector);
 
 		let count = 0;
 		draw_map.forEach((draw_col, scr_x) => {
@@ -1339,7 +1344,7 @@ class BobMap extends BobRenderable {
 				if (tile === -1)
 					return;
 				const tile_pos = get_tile(draw_info);
-				handle_tile(tile, tile_pos);
+				draw_tile(tile, tile_pos, map_info);
 				++count;
 			});
 		});
@@ -1367,13 +1372,12 @@ class BobMap extends BobRenderable {
 					map_x,
 					map_y,
 					map_z,
-					quad_type,
-					map_info
+					quad_type
 				};
 				if (tileno === null)
 					return;
-				this.handle_tile(result_vector, tileno,
-						 draw_info);
+				this.draw_tile(result_vector, tileno, draw_info,
+					       map_info);
 				++count;
 				quad_type = wall_type;
 				tileno = wall_tile;
@@ -1512,7 +1516,8 @@ class BobMap extends BobRenderable {
 	}
 
 	make_layerviews_draw(result_vector, current_i, draw_map) {
-		const handle_layerview_tile = (map, scr_x, scr_y, index) => {
+		const handle_layerview_tile = (map, scr_x, scr_y, index,
+					       map_info) => {
 			const tile = map.data[scr_y][scr_x] - 1;
 			if (tile === -1)
 				return;
@@ -1521,15 +1526,19 @@ class BobMap extends BobRenderable {
 				= draw_map[scr_x][scr_y].filter(tile_pos => (
 					tile_pos.map_info.object_map === index
 				));
-			console.assert(tile_pos.length === 1);
-			this.handle_tile(result_vector, tile, tile_pos[0]);
+			if (tile_pos.length !== 1) {
+				console.assert(false, "can't find back tile");
+				return;
+			}
+			this.draw_tile(result_vector, tile, tile_pos[0],
+				       map_info);
 			current_i += 6;
 		};
 
 
 		for (const layerview of this.layerviews) {
-			let { min_scr_x, min_scr_y, max_scr_x, max_scr_y }
-				= layerview;
+			let { min_scr_x, min_scr_y, max_scr_x, max_scr_y,
+			      index, map_info } = layerview;
 			const map = layerview.entity.maps[0];
 			const texture = this.texture_trove.get(map.tiles.path);
 
@@ -1550,7 +1559,7 @@ class BobMap extends BobRenderable {
 				for (let scr_y = min_scr_y; scr_y < max_scr_y;
 				     ++scr_y)
 					handle_layerview_tile(map, scr_x, scr_y,
-							      layerview.index);
+							      index, map_info);
 
 			layerview.tex_range.size
 				= current_i - layerview.tex_range.start;
