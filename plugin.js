@@ -126,7 +126,6 @@ const mulvecnorm = (mat, vec) => {
 		mulled[1] / mulled[3],
 		mulled[2] / mulled[3]];
 };
-window.mulvecnorm = mulvecnorm;
 
 // rotate_x_angle = 0 -> xy plane is dislayed, pi/2: x(-z) is displayed
 const rotate_me = (rotate_x_angle, nudge_angle, nudge_amount) => {
@@ -2167,8 +2166,11 @@ class BobRender {
 		this.nudge_angle = 0;
 		this.nudge_intensity = 0;
 		this.rotate = Math.PI / 4;
+		this.camera_center = { x:0, y:0, z:0 };
 		// for debugging.
 		this.debugshift = { x:0, y:0, z:0 };
+
+		this.enable = true;
 	}
 
 	setup_canvas(canvas, moretileinfo) {
@@ -2323,6 +2325,68 @@ class BobRender {
 		this.entities.render_blended();
 	}
 
+	get_screen_from_map_pos(parent, result, map_screen_x, map_screen_y) {
+		if (!this.enable)
+			return parent(result, map_screen_x, map_screen_y);
+
+
+		// why didn't they give the z ? damn !
+		// as a result, i have to assume z is where the player is,
+		// like what the camera does.
+		const x = map_screen_x;
+		const y = map_screen_y + this.camera_center.z;
+		const z = this.camera_center.z;
+
+		const res = mulvecnorm(this.matrix_all, [x, y, z, 1]);
+
+		const gl_to_screen = (pos, size) => (pos+1) * (size/2);
+		result.x = gl_to_screen(res[0], ig.system.width);
+		result.y = gl_to_screen(-res[1], ig.system.height);
+		return result;
+	}
+	get_map_from_screen_pos(parent, result, screen_x, screen_y) {
+		if (!this.enable)
+			return parent(result, screen_x, screen_y);
+		const screen_to_gl = (scr, size) => scr * 2 / size - 1;
+		const gl_screen_x = screen_to_gl(screen_x, ig.system.width);
+		const gl_screen_y = -screen_to_gl(screen_y, ig.system.height);
+
+		const m = this.matrix_all;
+		// this is tricky, you know that ?
+		// first, we know z.
+		const z = this.camera_center.z;
+		// we know how much it contributes to w
+		const w_base = z * m[3][2] + m[3][3];
+		// so w = x * m30 + y * m31 + w_base
+		//
+		// now, we want (x,y) such as:
+		// (x * m00 + y * m01 + z*m02 + m03) / w=X
+		// (x * m10 + y * m11 + z*m12 + m13) / w=Y
+		//
+		// well, that's easy, just multiply by w.
+		// x * (m00 - X*m30) + y * (m01-X*m31) = w_base*X-z*m02-m03
+		// x * (m10 - Y*m30) + y * (m11-Y*m31) = w_base*Y-z*m12-m13
+		const A = [
+			[ m[0][0] - gl_screen_x * m[3][0],
+			  m[0][1] - gl_screen_x * m[3][1] ],
+			[ m[1][0] - gl_screen_y * m[3][0] /* 0 if no nudge */,
+			  m[1][1] - gl_screen_y * m[3][1] ]
+		];
+		const B = [ w_base * gl_screen_x - z * m[0][2] - m[0][3],
+			    w_base * gl_screen_y - z * m[1][2] - m[1][3]];
+		// cramer !
+		const detA = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+		const x = (B[0] * A[1][1] - A[0][1] * B[1]) / detA;
+		const y = (A[0][0] * B[1] - A[1][0] * B[0]) / detA;
+
+		result.x = x;
+		result.y = y;
+		// note: one of the caller is PlayerCrossHairController
+		// and passes coll.pos as parameter... but it does not
+		// use it for its sprite :(
+		return result;
+	}
+
 	bind_to_game() {
 		const me = this;
 		const modulize = (dummyname, deps, func) =>
@@ -2352,7 +2416,23 @@ class BobRender {
 				}
 			});
 			ig.addGameAddon(() => new BobRankAddon());
-		  });
+		});
+		modulize("bobshiter", ["impact.base.system"], () => {
+			ig.System.inject({
+				getScreenFromMapPos: function(res, x, y) {
+					const p = this.parent.bind(this);
+					return me.get_screen_from_map_pos(p,
+									  res,
+									  x, y);
+				},
+				getMapFromScreenPos: function(res, x, y) {
+					const p = this.parent.bind(this);
+					return me.get_map_from_screen_pos(p,
+									  res,
+									  x, y);
+				}
+			});
+		});
 	}
 
 	clear_screen_and_everything() {
@@ -2364,24 +2444,25 @@ class BobRender {
 
 		//const centerx = ig.camera._currentZoomPos.x;
 		//let centery = ig.camera._currentZoomPos.y;
-		const centerx = ig.camera._currentPos.x;
-		let centery = ig.camera._currentPos.y;
-		let centerz = 0;
+		this.camera_center.x = ig.camera._currentPos.x;
+		this.camera_center.y = ig.camera._currentPos.y;
+		this.camera_center.z = 0;
 		const targets = ig.camera.targets;
 		if (targets.length) {
 			const last = targets[targets.length - 1];
 			if (last.target && last.target._currentZ) {
-				centerz = last.target._currentZ;
-				centery += centerz;
+				this.camera_center.z = last.target._currentZ;
+				this.camera_center.y += this.camera_center.z;
 			}
 		}
 		const zoom = ig.camera._currentZoom || 1;
+
 		// move center of screen at (0,0,0)
-		translate_matrix_before(view_matrix,
-					-centerx + this.debugshift.x,
-					-centery + this.debugshift.y,
-					-centerz + this.debugshift.z);
+		const trans = window.Vec3.sub(this.debugshift,
+					      this.camera_center, {});
+		translate_matrix_before(view_matrix, trans.x, trans.y, trans.z);
 		// take the camera back by 300
+		// FIXME: the hit2.png effects are currently at z = 142
 		translate_matrix(view_matrix,
 				 0,
 				 0,
