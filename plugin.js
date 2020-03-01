@@ -1,17 +1,9 @@
 // SPDX-Identifier: MIT
-"use strict";
 
+import { getcol, mulscalar, mulvec, addvec } from "./math.js";
 
-import { mulmat, getcol, mulscalar, mulvec, addvec, mulvecnorm,
-	 rotate_me, translate_matrix_before, translate_matrix, throw_at_wall,
-	 get_preimage_partial } from "./math.js";
-
-import { webglplz, compile_shader, create_program, extractlocations, 
-	 fill_const_buffer, fill_dynamic_buffer,
-	 stuff_matrix_to_uniform,
-	 disable_blending, enable_blending,
-	 TextureTrove, BobRenderable } from "./render.js";
-
+import { fill_const_buffer, fill_dynamic_buffer,
+	 TextureTrove, BobRenderable, BobRender } from "./render.js";
 
 // maybe there is a way to iteratize it ?
 const forEachBackward = (array, callback, from) => {
@@ -1710,302 +1702,6 @@ class BobEntities extends BobRenderable {
 	}
 }
 
-// TODO: extract part of it into render.js
-class BobRender {
-	constructor() {
-		this.context = null;
-		this.map = null;
-		// FIXME: this should vary over time
-		this.nudge_angle = 0;
-		this.nudge_intensity = 0;
-		this.rotate = Math.PI / 4;
-		this.camera_center = { x:0, y:0, z:0 };
-		// for debugging.
-		this.debugshift = { x:0, y:0, z:0 };
-
-		this.enable = true;
-	}
-
-	setup_canvas(canvas, moretileinfo) {
-
-		const ratio = canvas.width / canvas.height;
-		// need a real reflection on fov:
-		// - don't want rotate - vertical fov/2 to be below 0, otherwise
-		// we will have to render the back of cubes
-		// - don't want rotate + vertical fov/2 to be above 90°,
-		// otherwise there will be black backgrounds to render.
-		// but that's the vertical fov, which needs to be calculated
-		// from the horizontal fov, which is probably
-		// vfov = 2 * atan(ratio * tan(hfov/2))
-		const fov = Math.PI * 0.4;
-		this.proj_matrix = throw_at_wall(fov, ratio, -100, -700);
-
-		this.context = webglplz(canvas);
-
-		this.vertexshader = compile_shader(this.context,
-						   "VERTEX_SHADER", `
-		attribute vec4 pos;
-		attribute vec2 texcoord;
-		uniform mat4 projectmat;
-		varying mediump vec2 texcoord2;
-		void main() {
-			gl_Position = projectmat * pos;
-			texcoord2 = texcoord;
-		}
-		`);
-
-		this.fragshader = compile_shader(this.context,
-						 "FRAGMENT_SHADER", `
-		varying mediump vec2 texcoord2;
-		uniform sampler2D colorsampler;
-		void main() {
-			// FIXME: find what control interpolation in there.
-			gl_FragColor = texture2D(colorsampler, texcoord2);
-			if (gl_FragColor.a < 0.5)
-				discard;
-			// gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
-		}
-		`);
-		this.blendung_shader = compile_shader(this.context,
-						      "FRAGMENT_SHADER", `
-
-		varying mediump vec2 texcoord2;
-		uniform sampler2D colorsampler;
-		uniform mediump vec4 blend_color;
-
-		void main() {
-			mediump vec4 color = texture2D(colorsampler, texcoord2);
-			if (color.a == 0.)
-				discard;
-			mediump vec3 blended = mix(color.rgb, blend_color.rgb,
-						   blend_color.a);
-
-			gl_FragColor = vec4(blended, color.a);
-		}
-		`);
-
-		this.program = create_program(this.context,
-					      [this.vertexshader,
-					       this.fragshader]);
-		this.locations = extractlocations(this.context, this.program,
-						  ["pos", "texcoord"],
-						  ["projectmat",
-						   "colorsampler"]);
-		this.blend_program = create_program(this.context,
-						    [this.vertexshader,
-						     this.blendung_shader]);
-		this.blend_locations = extractlocations(this.context,
-							this.blend_program,
-							["pos", "texcoord"],
-							["projectmat",
-							 "colorsampler",
-							 "blend_color"]);
-
-		this.context.useProgram(this.program);
-
-		this.context.enable(this.context.DEPTH_TEST);
-		// isn't that the default ? ... no, the default is LESS
-		// LEQUAL allows us to redraw on the same tile with more
-		// details, which is necessary, at least for maps.
-		this.context.depthFunc(this.context.LEQUAL);
-		// should make this black at some point.
-		// (the default is black with alpha = 0)
-		// wait, doesn't the game have a variable about it ?
-		this.context.clearColor(0, 0, 1, 1); // blue sky (ok ...)
-		// note: the default clearDepth is 1
-
-		// maybe disable dithering ?
-		this.context.disable(this.context.DITHER);
-
-		const opaque_locations = {
-			pos: this.locations.pos,
-			tex_coord: this.locations.texcoord
-		};
-		const blend_locations = {
-			pos: this.blend_locations.pos,
-			tex_coord: this.blend_locations.texcoord,
-			color_blend: this.blend_locations.blend_color
-		};
-
-		this.map = new BobMap(this.context,
-				      opaque_locations,
-				      blend_locations,
-				      moretileinfo);
-		this.entities = new BobEntities(this.context,
-						opaque_locations,
-						blend_locations,
-						moretileinfo);
-	}
-
-	set_uniforms(uniforms) {
-		stuff_matrix_to_uniform(this.context,
-					uniforms.projectmat,
-					this.matrix_all);
-		// Assume that TEXTURE0 is the base color texture
-		this.context.uniform1i(uniforms.colorsampler, 0);
-		// note: TEXTURE0 is the default ACTIVE_TEXTURE.
-	}
-
-	draw_layerz (parent) {
-		parent();
-		if (!this.map) {
-			console.assert(ig.game.maps.length === 0);
-			return;
-		}
-		if (ig.game.mapRenderingBlocked || ig.loading
-		    || !(ig.game.maxLevel > 0))
-			return;
-
-		this.context.useProgram(this.program);
-		disable_blending(this.context);
-
-		this.set_uniforms(this.locations);
-
-		this.entities.clear();
-		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
-		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
-		this.entities.finalize();
-		this.map.render_opaque();
-		this.map.render_objectlayerviews(false);
-		this.entities.render_opaque();
-
-		// START ALPHA BLENDONG
-		this.context.useProgram(this.blend_program);
-		enable_blending(this.context);
-		this.set_uniforms(this.blend_locations);
-
-		this.map.render_objectlayerviews(true);
-		this.entities.render_blended();
-	}
-
-	get_screen_from_map_pos(parent, result, map_screen_x, map_screen_y) {
-		if (!this.enable)
-			return parent(result, map_screen_x, map_screen_y);
-
-
-		// why didn't they give the z ? damn !
-		// as a result, i have to assume z is where the player is,
-		// like what the camera does.
-		const x = map_screen_x;
-		const y = map_screen_y + this.camera_center.z;
-		const z = this.camera_center.z;
-
-		const res = mulvecnorm(this.matrix_all, [x, y, z, 1]);
-
-		const gl_to_screen = (pos, size) => (pos+1) * (size/2);
-		result.x = gl_to_screen(res[0], ig.system.width);
-		result.y = gl_to_screen(-res[1], ig.system.height);
-		return result;
-	}
-	get_map_from_screen_pos(parent, result, screen_x, screen_y) {
-		if (!this.enable)
-			return parent(result, screen_x, screen_y);
-		const screen_to_gl = (scr, size) => scr * 2 / size - 1;
-		const gl_screen_x = screen_to_gl(screen_x, ig.system.width);
-		const gl_screen_y = -screen_to_gl(screen_y, ig.system.height);
-		// assume z is center of camera (i.e. lea)
-
-		const calculated = get_preimage_partial(gl_screen_x,
-							gl_screen_y,
-							this.camera_center.z,
-							this.matrix_all);
-
-		result.x = calculated.x;
-		result.y = calculated.y;
-		// note: one of the caller is PlayerCrossHairController
-		// and passes coll.pos as parameter... but it does not
-		// use it for its sprite :(
-		return result;
-	}
-
-	bind_to_game() {
-		const me = this;
-		const modulize = (dummyname, deps, func) =>
-			ig.module(dummyname).requires(...deps).defines(func);
-		modulize("bobrender", ["impact.base.renderer"], () => {
-			ig.Renderer2d.inject({
-				drawLayers: function () {
-					const parent = this.parent.bind(this);
-					return me.draw_layerz(parent);
-				}
-			});
-		});
-
-		modulize("bobrender2", ["impact.base.game"], () => {
-			const BobRankAddon = ig.GameAddon.extend({
-				onPreDraw: function() {
-					me.clear_screen_and_everything();
-				},
-				onLevelLoadStart: function(map) {
-					// map comes directly from json
-					// tilesets not loaded
-					me.map.steal_map_data(map);
-				},
-				onLevelLoaded: function() {
-					// tilesets are loaded now
-					me.map.steal_map();
-				}
-			});
-			ig.addGameAddon(() => new BobRankAddon());
-		});
-		modulize("bobshiter", ["impact.base.system"], () => {
-			ig.System.inject({
-				getScreenFromMapPos: function(res, x, y) {
-					const p = this.parent.bind(this);
-					return me.get_screen_from_map_pos(p,
-									  res,
-									  x, y);
-				},
-				getMapFromScreenPos: function(res, x, y) {
-					const p = this.parent.bind(this);
-					return me.get_map_from_screen_pos(p,
-									  res,
-									  x, y);
-				}
-			});
-		});
-	}
-
-	clear_screen_and_everything() {
-		if (!this.context)
-			return;
-
-		const view_matrix = rotate_me(this.rotate, this.nudge_angle,
-					      this.nudge_intensity);
-
-		//const centerx = ig.camera._currentZoomPos.x;
-		//let centery = ig.camera._currentZoomPos.y;
-		this.camera_center.x = ig.camera._currentPos.x;
-		this.camera_center.y = ig.camera._currentPos.y;
-		this.camera_center.z = 0;
-		const targets = ig.camera.targets;
-		if (targets.length) {
-			const last = targets[targets.length - 1];
-			if (last.target && last.target._currentZ) {
-				this.camera_center.z = last.target._currentZ;
-				this.camera_center.y += this.camera_center.z;
-			}
-		}
-		const zoom = ig.camera._currentZoom || 1;
-
-		// move center of screen at (0,0,0)
-		const trans = window.Vec3.sub(this.debugshift,
-					      this.camera_center, {});
-		translate_matrix_before(view_matrix, trans.x, trans.y, trans.z);
-		// take the camera back by 300
-		// FIXME: the hit2.png effects are currently at z = 142
-		translate_matrix(view_matrix,
-				 0,
-				 0,
-				 -275 / zoom);
-
-		this.matrix_all = mulmat(this.proj_matrix, view_matrix);
-
-		this.context.clear(this.context.COLOR_BUFFER_BIT
-				   | this.context.DEPTH_BUFFER_BIT);
-	}
-}
-
 class MoreTileInfos {
 	static parse_entry(key, value) {
 
@@ -2239,12 +1935,30 @@ class MoreTileInfos {
 	}
 }
 
-export default class Mod extends Plugin {
-	constructor(what) {
-		super(what);
+class BobRank {
+	constructor() {
+		this.renderer = new BobRender();
+		this.moretileinfo = null;
+		this.map = null;
+		this.entities = null;
+		this.enable = false;
 	}
-	load_moreinfo () {
-		return new Promise((resolve, reject) => {
+
+	async setup(canvas) {
+		this.renderer.setup_canvas(canvas);
+
+		// TODO: put this in BobRenderable
+		const opaque_locations = {
+			pos: this.renderer.locations.pos,
+			tex_coord: this.renderer.locations.texcoord
+		};
+		const blend_locations = {
+			pos: this.renderer.blend_locations.pos,
+			tex_coord: this.renderer.blend_locations.texcoord,
+			color_blend: this.renderer.blend_locations.blend_color
+		};
+
+		this.moretileinfo = await new Promise((resolve, reject) => {
 			$.ajax({
 				dataType:"json",
 				url:"assets/data/more-tile-infos.json",
@@ -2252,13 +1966,152 @@ export default class Mod extends Plugin {
 				error: reject
 			});
 		});
+
+		this.map = new BobMap(this.renderer.context,
+				      opaque_locations,
+				      blend_locations,
+				      this.moretileinfo);
+		this.entities = new BobEntities(this.renderer.context,
+						opaque_locations,
+						blend_locations,
+						this.moretileinfo);
+		// FIXME
+		this.enable = true;
+	}
+
+	draw_layerz (parent) {
+		parent();
+		if (!this.enable)
+			return;
+		if (!this.map) {
+			console.assert(ig.game.maps.length === 0);
+			return;
+		}
+		if (ig.game.mapRenderingBlocked || ig.loading
+		    || !(ig.game.maxLevel > 0))
+			return;
+
+		this.renderer.start_non_blending();
+
+		this.entities.clear();
+		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
+		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
+		this.entities.finalize();
+		this.map.render_opaque();
+		this.map.render_objectlayerviews(false);
+		this.entities.render_opaque();
+
+		// START ALPHA BLENDONG
+		this.renderer.start_blending();
+
+		this.map.render_objectlayerviews(true);
+		this.entities.render_blended();
+	}
+
+	get_screen_from_map_pos(parent, result, map_screen_x, map_screen_y) {
+		if (!this.enable)
+			return parent(result, map_screen_x, map_screen_y);
+		const ret = this.renderer.get_screen_from_map_pos(map_screen_x,
+								  map_screen_y);
+		result.x = ret.x;
+		result.y = ret.y;
+		return result;
+	}
+	get_map_from_screen_pos(parent, result, screen_x, screen_y) {
+		if (!this.enable)
+			return parent(result, screen_x, screen_y);
+
+		const ret = this.renderer.get_map_from_screen_pos(screen_x,
+								  screen_y);
+
+		result.x = ret.x;
+		result.y = ret.y;
+		// note: one of the caller is PlayerCrossHairController
+		// and passes coll.pos as parameter... but it does not
+		// use it for its sprite :(
+		return result;
+	}
+
+	bind_to_game() {
+		const me = this;
+		const modulize = (dummyname, deps, func) =>
+			ig.module(dummyname).requires(...deps).defines(func);
+		modulize("bobrender", ["impact.base.renderer"], () => {
+			ig.Renderer2d.inject({
+				drawLayers: function () {
+					const parent = this.parent.bind(this);
+					return me.draw_layerz(parent);
+				}
+			});
+		});
+
+		modulize("bobrender2", ["impact.base.game"], () => {
+			const BobRankAddon = ig.GameAddon.extend({
+				onPreDraw: function() {
+					me.clear_screen_and_everything();
+				},
+				onLevelLoadStart: function(map) {
+					// map comes directly from json
+					// tilesets not loaded
+					me.map.steal_map_data(map);
+				},
+				onLevelLoaded: function() {
+					// tilesets are loaded now
+					me.map.steal_map();
+				}
+			});
+			ig.addGameAddon(() => new BobRankAddon());
+		});
+		modulize("bobshiter", ["impact.base.system"], () => {
+			ig.System.inject({
+				getScreenFromMapPos: function(res, x, y) {
+					const p = this.parent.bind(this);
+					return me.get_screen_from_map_pos(p,
+									  res,
+									  x, y);
+				},
+				getMapFromScreenPos: function(res, x, y) {
+					const p = this.parent.bind(this);
+					return me.get_map_from_screen_pos(p,
+									  res,
+									  x, y);
+				}
+			});
+		});
+	}
+	clear_screen_and_everything() {
+		if (!this.enable)
+			return;
+		//const centerx = ig.camera._currentZoomPos.x;
+		//let centery = ig.camera._currentZoomPos.y;
+		let camera_x = ig.camera._currentPos.x;
+		let camera_y = ig.camera._currentPos.y;
+		let camera_z = 0;
+		const targets = ig.camera.targets;
+		if (targets.length) {
+			const last = targets[targets.length - 1];
+			if (last.target && last.target._currentZ) {
+				camera_z = last.target._currentZ;
+				camera_y += camera_z;
+			}
+		}
+		const zoom = ig.camera._currentZoom || 1;
+
+		this.renderer.set_camera_center(camera_x, camera_y, camera_z,
+						zoom);
+		this.renderer.clear_screen();
+	}
+}
+
+export default class Mod extends Plugin {
+	constructor(what) {
+		super(what);
 	}
 	preload() {
 	}
 	postload() {
-
-		this.renderer = new BobRender();
-		this.renderer.bind_to_game();
+		this.bobrank = new BobRank();
+		this.bobrank.bind_to_game();
 	}
 	async main() {
 		// debug
@@ -2270,7 +2123,6 @@ export default class Mod extends Plugin {
 		this.canvas3d.style.marginTop = "320px";
 		document.getElementById("game").appendChild(this.canvas3d);
 
-		const moreinfo = await this.load_moreinfo();
-		this.renderer.setup_canvas(this.canvas3d, moreinfo);
+		await this.bobrank.setup(this.canvas3d);
 	}
 }

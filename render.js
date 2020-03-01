@@ -1,3 +1,9 @@
+// SPDX-Identifier: MIT
+
+import { mulmat, mulvecnorm,
+	 rotate_me, translate_matrix_before, translate_matrix, throw_at_wall,
+	 get_preimage_partial } from "./math.js";
+
 const webglplz = (canvas) => {
 	const gl = canvas.getContext("webgl");
 	return gl;
@@ -283,8 +289,185 @@ class BobRenderable {
 	}
 }
 
-export { webglplz, compile_shader, create_program, extractlocations, 
-	 fill_const_buffer, fill_dynamic_buffer,
-	 stuff_matrix_to_uniform,
-	 disable_blending, enable_blending,
-	 TextureTrove, BobRenderable };
+class BobRender {
+	constructor() {
+		this.context = null;
+		this.map = null;
+		// FIXME: this should vary over time
+		this.nudge_angle = 0;
+		this.nudge_intensity = 0;
+		this.rotate = Math.PI / 4;
+		this.camera_center = { x:0, y:0, z:0 };
+		// for debugging.
+		this.debugshift = { x:0, y:0, z:0 };
+	}
+
+	setup_canvas(canvas) {
+
+		const ratio = canvas.width / canvas.height;
+		// need a real reflection on fov:
+		// - don't want rotate - vertical fov/2 to be below 0, otherwise
+		// we will have to render the back of cubes
+		// - don't want rotate + vertical fov/2 to be above 90°,
+		// otherwise there will be black backgrounds to render.
+		// but that's the vertical fov, which needs to be calculated
+		// from the horizontal fov, which is probably
+		// vfov = 2 * atan(ratio * tan(hfov/2))
+		const fov = Math.PI * 0.4;
+		this.proj_matrix = throw_at_wall(fov, ratio, -100, -700);
+
+		this.context = webglplz(canvas);
+
+		this.vertexshader = compile_shader(this.context,
+						   "VERTEX_SHADER", `
+		attribute vec4 pos;
+		attribute vec2 texcoord;
+		uniform mat4 projectmat;
+		varying mediump vec2 texcoord2;
+		void main() {
+			gl_Position = projectmat * pos;
+			texcoord2 = texcoord;
+		}
+		`);
+
+		this.fragshader = compile_shader(this.context,
+						 "FRAGMENT_SHADER", `
+		varying mediump vec2 texcoord2;
+		uniform sampler2D colorsampler;
+		void main() {
+			// FIXME: find what control interpolation in there.
+			gl_FragColor = texture2D(colorsampler, texcoord2);
+			if (gl_FragColor.a < 0.5)
+				discard;
+			// gl_FragColor = vec4(1, /*gl_Position.x*/ 0, 1, 1);
+		}
+		`);
+		this.blendung_shader = compile_shader(this.context,
+						      "FRAGMENT_SHADER", `
+
+		varying mediump vec2 texcoord2;
+		uniform sampler2D colorsampler;
+		uniform mediump vec4 blend_color;
+
+		void main() {
+			mediump vec4 color = texture2D(colorsampler, texcoord2);
+			if (color.a == 0.)
+				discard;
+			mediump vec3 blended = mix(color.rgb, blend_color.rgb,
+						   blend_color.a);
+
+			gl_FragColor = vec4(blended, color.a);
+		}
+		`);
+
+		this.program = create_program(this.context,
+					      [this.vertexshader,
+					       this.fragshader]);
+		this.locations = extractlocations(this.context, this.program,
+						  ["pos", "texcoord"],
+						  ["projectmat",
+						   "colorsampler"]);
+		this.blend_program = create_program(this.context,
+						    [this.vertexshader,
+						     this.blendung_shader]);
+		this.blend_locations = extractlocations(this.context,
+							this.blend_program,
+							["pos", "texcoord"],
+							["projectmat",
+							 "colorsampler",
+							 "blend_color"]);
+
+		this.context.useProgram(this.program);
+
+		this.context.enable(this.context.DEPTH_TEST);
+		// isn't that the default ? ... no, the default is LESS
+		// LEQUAL allows us to redraw on the same tile with more
+		// details, which is necessary, at least for maps.
+		this.context.depthFunc(this.context.LEQUAL);
+		// should make this black at some point.
+		// (the default is black with alpha = 0)
+		// wait, doesn't the game have a variable about it ?
+		this.context.clearColor(0, 0, 1, 1); // blue sky (ok ...)
+		// note: the default clearDepth is 1
+
+		// maybe disable dithering ?
+		this.context.disable(this.context.DITHER);
+	}
+
+	set_uniforms(uniforms) {
+		stuff_matrix_to_uniform(this.context,
+					uniforms.projectmat,
+					this.matrix_all);
+		// Assume that TEXTURE0 is the base color texture
+		this.context.uniform1i(uniforms.colorsampler, 0);
+		// note: TEXTURE0 is the default ACTIVE_TEXTURE.
+	}
+
+	get_screen_from_map_pos(map_screen_x, map_screen_y) {
+		// why didn't they give the z ? damn !
+		// as a result, i have to assume z is where the player is,
+		// like what the camera does.
+		const x = map_screen_x;
+		const y = map_screen_y + this.camera_center.z;
+		const z = this.camera_center.z;
+
+		const res = mulvecnorm(this.matrix_all, [x, y, z, 1]);
+
+		const gl_to_screen = (pos, size) => (pos+1) * (size/2);
+		return {
+			x: gl_to_screen(res[0], ig.system.width),
+			y: gl_to_screen(-res[1], ig.system.height)
+		};
+	}
+	get_map_from_screen_pos(screen_x, screen_y) {
+		const screen_to_gl = (scr, size) => scr * 2 / size - 1;
+		const gl_screen_x = screen_to_gl(screen_x, ig.system.width);
+		const gl_screen_y = -screen_to_gl(screen_y, ig.system.height);
+		// assume z is center of camera (i.e. lea)
+
+		return get_preimage_partial(gl_screen_x, gl_screen_y,
+					    this.camera_center.z,
+					    this.matrix_all);
+	}
+
+	set_camera_center(x, y, z, zoom) {
+		this.camera_center.x = x;
+		this.camera_center.y = y;
+		this.camera_center.z = z;
+
+		const view_matrix = rotate_me(this.rotate, this.nudge_angle,
+					      this.nudge_intensity);
+
+		// move center of screen at (0,0,0)
+		const trans = window.Vec3.sub(this.debugshift, { x, y, z}, {});
+		translate_matrix_before(view_matrix, trans.x, trans.y, trans.z);
+		// take the camera back by 300
+		// FIXME: the hit2.png effects are currently at z = 142
+		translate_matrix(view_matrix,
+				 0,
+				 0,
+				 -275 / zoom);
+
+		this.matrix_all = mulmat(this.proj_matrix, view_matrix);
+	}
+
+	clear_screen() {
+		this.context.clear(this.context.COLOR_BUFFER_BIT
+				   | this.context.DEPTH_BUFFER_BIT);
+	}
+
+	start_non_blending() {
+		this.context.useProgram(this.program);
+		disable_blending(this.context);
+		this.set_uniforms(this.locations);
+	}
+	start_blending() {
+		this.context.useProgram(this.blend_program);
+		enable_blending(this.context);
+		this.set_uniforms(this.blend_locations);
+	}
+
+}
+
+export { fill_const_buffer, fill_dynamic_buffer,
+	 TextureTrove, BobRenderable, BobRender };

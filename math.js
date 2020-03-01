@@ -1,3 +1,4 @@
+// SPDX-Identifier: MIT
 
 const quat_to_mat = (r, x, y, z) => {
 	// unit quats only. If not, we are zooming by 1/|q|²
