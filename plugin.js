@@ -1944,8 +1944,8 @@ class BobRank {
 		this.enable = false;
 	}
 
-	async setup(canvas) {
-		this.renderer.setup_canvas(canvas);
+	async setup(canvas3d, canvas2dgui) {
+		this.renderer.setup_canvas(canvas3d);
 
 		// TODO: put this in BobRenderable
 		const opaque_locations = {
@@ -1977,6 +1977,9 @@ class BobRank {
 						this.moretileinfo);
 		// FIXME
 		this.enable = true;
+
+		this.canvas_gui = canvas2dgui;
+		this.context_gui = canvas2dgui.getContext("2d");
 	}
 
 	draw_layerz (parent) {
@@ -2038,9 +2041,16 @@ class BobRank {
 			ig.module(dummyname).requires(...deps).defines(func);
 		modulize("bobrender", ["impact.base.renderer"], () => {
 			ig.Renderer2d.inject({
-				drawLayers: function () {
-					const parent = this.parent.bind(this);
+				drawLayers: function (force, dont_clear) {
+					const parent
+						= this.parent.bind(this, force,
+								   dont_clear);
 					return me.draw_layerz(parent);
+				},
+				drawPostLayerSprites: function(force) {
+					const parent
+						= this.parent.bind(this, force);
+					return parent();
 				}
 			});
 		});
@@ -2058,6 +2068,9 @@ class BobRank {
 				onLevelLoaded: function() {
 					// tilesets are loaded now
 					me.map.steal_map();
+				},
+				onPostDraw: function() {
+					me.draw_gui();
 				}
 			});
 			ig.addGameAddon(() => new BobRankAddon());
@@ -2079,6 +2092,21 @@ class BobRank {
 			});
 		});
 	}
+
+	draw_gui() {
+		if (!this.enable)
+			return;
+		const stolen_context = ig.system.context;
+		const stolen_canvas = ig.system.canvas;
+		ig.system.context = this.context_gui;
+		ig.system.canvas = this.canvas_gui;
+		this.context_gui.clearRect(0, 0, this.canvas_gui.width,
+					   this.canvas_gui.height);
+		ig.gui.renderer.draw();
+		ig.system.context = stolen_context;
+		ig.system.canvas = stolen_canvas;
+	}
+
 	clear_screen_and_everything() {
 		if (!this.enable)
 			return;
@@ -2117,12 +2145,20 @@ export default class Mod extends Plugin {
 		// debug
 		ig.system.canvas.style.margin = "0px";
 
-		this.canvas3d = document.createElement("canvas");
-		this.canvas3d.width = 570;
-		this.canvas3d.height = 320;
-		this.canvas3d.style.marginTop = "320px";
-		document.getElementById("game").appendChild(this.canvas3d);
+		const canvasplz = () => {
+			let canvas = document.createElement("canvas");
+			canvas.width = 570;
+			canvas.height = 320;
+			// FOR THE DEBUGGIN
+			canvas.style.position = "absolute";
+			canvas.style.top = "320px";
+			document.getElementById("game").appendChild(canvas);
+			return canvas;
+		};
+		const canvas3d = canvasplz();
+		const canvas2dgui = canvasplz();
+		canvas2dgui.style.zIndex = 1;
 
-		await this.bobrank.setup(this.canvas3d);
+		await this.bobrank.setup(canvas3d, canvas2dgui);
 	}
 }
