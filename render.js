@@ -267,7 +267,7 @@ class BobRenderable {
 		if (textures_ranges === undefined)
 			textures_ranges = this.blending_ranges;
 		// let's do some alpha blendong
-		for (const blendrange of this.blending_ranges) {
+		for (const blendrange of textures_ranges) {
 			assign_texture(this.context, blendrange.texture);
 			if (blendrange.mode === "normal")
 				blend_constant(this.context, blendrange.alpha);
@@ -468,6 +468,12 @@ class BobRender {
 		this.context.useProgram(this.blend_program);
 		enable_blending(this.context);
 		this.set_uniforms(this.blend_locations);
+	}
+	disable_depth() {
+		this.context.disable(this.context.DEPTH_TEST);
+	}
+	enable_depth() {
+		this.context.enable(this.context.DEPTH_TEST);
 	}
 
 }

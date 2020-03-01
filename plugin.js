@@ -1269,20 +1269,33 @@ class BobEntities extends BobRenderable {
 		    moretileinfo) {
 		super(context, locations_opaque, locations_blended);
 		this.moretileinfo = moretileinfo;
+		this.camera_z = null;
 	}
 	clear() {
 		this.sprites_by_texture = {};
 		this.blend_sprites_by_z = [];
+		this.hyperheight_by_z = [];
+		this.hyperheight_ranges = [];
 		this.textures_ranges.length = 0;
 	}
-	do_overrides(path, cubesprite) {
+	do_overrides(path, cubesprite, overriden) {
+		if (cubesprite.gui && cubesprite.pos.z >= 142) {
+			const z = this.camera_z;
+			const y = cubesprite.pos.y - cubesprite.pos.z + z;
+			const x = cubesprite.pos.x;
+			overriden.pos = { x, y, z };
+		}
+
+
 		// I have LOADS of reserves on how the game classify ground
 		// and wall sprites.
 		// i will list them ALL HERE ! MUAHAHAHA !
 		const splitted = path.split("/");
 		const override = walk_break_on_first(path_overrides, splitted);
-		if (override)
-			return override; // for now.
+		if (override) {
+			overriden.type = override; // for now.
+			return;
+		}
 
 		const tileinfo = this.moretileinfo.get(path);
 		if (tileinfo.found) {
@@ -1300,11 +1313,9 @@ class BobEntities extends BobRenderable {
 			if (quad_type.indexOf("WALL") !== -1)
 				// FIXME: we could return more, and waterfallz
 				// need it.
-				return "wall";
-		}
-
-		if (!cubesprite.size.z)
-			return "ground";
+				overriden.type = "wall";
+		} else if (!cubesprite.size.z)
+			overriden.type = "ground";
 		return null;
 	}
 	prepare_sprites(spritearray) {
@@ -1328,9 +1339,14 @@ class BobEntities extends BobRenderable {
 				console.log("strange sprite");
 			if (!path)
 				continue;
+			const texture = this.texture_trove.add(path, image);
 
 			let has_opaque = true;
 			let has_blending = false;
+			if (cs.gui && cs.pos.z >= 142) {
+				this.hyperheight_by_z.push({sprite, path});
+				continue;
+			}
 			if (cs.renderMode
 			    || Number(cs.alpha) !== 1
 			    || cs.overlay.color) {
@@ -1341,19 +1357,14 @@ class BobEntities extends BobRenderable {
 				has_blending = true;
 
 			if (has_blending)
-				this.blend_sprites_by_z.push(
-					{ sprite, path });
+				this.blend_sprites_by_z.push({ sprite, path });
 
-			if (!has_opaque) {
-				this.texture_trove.add(path, image);
+			if (!has_opaque)
 				continue;
-			}
 
 
 			let textureinfo = by_texture[path];
 			if (!textureinfo) {
-				const texture = this.texture_trove.add(path,
-								       image);
 				textureinfo = by_texture[path] = {
 					texture,
 					sprites: []
@@ -1554,7 +1565,9 @@ class BobEntities extends BobRenderable {
 		// i have some reserves on how the game classify ground
 		// sprites from wall sprites.
 		// FIXME: this affects ground removal, is that intended ?
-		switch (this.do_overrides(path, cs)) {
+		let overriden = {};
+		this.do_overrides(path, cs, overriden);
+		switch (overriden.type) {
 			case "ground":
 				is_ground = true;
 				break;
@@ -1562,6 +1575,7 @@ class BobEntities extends BobRenderable {
 				is_ground = false;
 				break;
 		}
+		const pos = overriden.pos || cs.pos;
 
 		const src_quad_tex
 			= BobEntities.get_src_quad_tex(cs, is_ground);
@@ -1570,11 +1584,11 @@ class BobEntities extends BobRenderable {
 			return 0;
 
 		// BobGeo want low x, high y, low z
-		let x = cs.pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
+		let x = pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
 			cs.gfxCut.left;
-		let y = (cs.pos.y + cs.tmpOffset.y + cs.size.y
-				  + cs.gfxOffset.y);
-		let z = cs.pos.z + cs.tmpOffset.z;
+		let y = (pos.y + cs.tmpOffset.y + cs.size.y
+			       + cs.gfxOffset.y);
+		let z = pos.z + cs.tmpOffset.z;
 		if (is_ground) {
 			// the ground part is the top of the sprite.
 			z += cs.size.z;
@@ -1629,10 +1643,10 @@ class BobEntities extends BobRenderable {
 		}
 		return i;
 	}
-	finalize_blending_sprites(result_vector, i) {
+	finalize_blending_sprites(result_vector, i, blend_sprites, ranges) {
 		const get_color = color_calculator.get.bind(color_calculator);
-		this.blending_ranges.length = 0;
-		for (const blend_sprite of this.blend_sprites_by_z) {
+		ranges.length = 0;
+		for (const blend_sprite of blend_sprites) {
 			const start = i;
 			const path = blend_sprite.path;
 			const cs = blend_sprite.sprite.cubeSprite;
@@ -1650,7 +1664,7 @@ class BobEntities extends BobRenderable {
 					color = [0,0,0,0];
 				else
 					color[3] = color_alpha;
-				this.blending_ranges.push({
+				ranges.push({
 					start, size, texture,
 					mode: blendmode, alpha,
 					blend_color: color
@@ -1692,11 +1706,18 @@ class BobEntities extends BobRenderable {
 		}
 		return i;
 	}
-	finalize() {
+	finalize(z_for_hyperheights) {
+		this.camera_z = z_for_hyperheights;
+
 		const everything = [];
 		let i = 0;
 		i = this.finalize_opaque_sprites(everything, i);
-		this.finalize_blending_sprites(everything, i);
+		i = this.finalize_blending_sprites(everything, i,
+						   this.blend_sprites_by_z,
+						   this.blending_ranges);
+		this.finalize_blending_sprites(everything, i,
+					       this.hyperheight_by_z,
+					       this.hyperheight_ranges);
 
 		fill_dynamic_buffer(this.context, this.buf, everything);
 	}
@@ -2028,11 +2049,12 @@ class BobRank {
 			return;
 
 		this.renderer.start_non_blending();
+		this.renderer.enable_depth();
 
 		this.entities.clear();
 		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
 		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
-		this.entities.finalize();
+		this.entities.finalize(this.renderer.camera_center.z);
 		this.map.render_opaque();
 		this.map.render_objectlayerviews(false);
 		this.entities.render_opaque();
@@ -2042,6 +2064,9 @@ class BobRank {
 
 		this.map.render_objectlayerviews(true);
 		this.entities.render_blended();
+
+		this.renderer.disable_depth();
+		this.entities.render_blended(this.entities.hyperheight_ranges);
 	}
 
 	get_screen_from_map_pos(parent, result, map_screen_x, map_screen_y) {
@@ -2197,11 +2222,6 @@ export default class Mod extends Plugin {
 
 		const div = document.createElement("div");
 
-		const strippx = length => {
-			if (length.endsWith("px"))
-				return Number(length.slice(0, -2));
-			return Number(length);
-		};
 		Object.assign(div.style, {
 			position: "absolute",
 			left:"0", right:"0", top:"0", bottom: "0",
