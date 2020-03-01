@@ -1950,13 +1950,15 @@ class BobRank {
 
 	enable() {
 		this._enabled = true;
-		this.original_canvas.style.display = "none";
+		// note: i can't set display:none to the original canvas,
+		// because it is also used for mouse events.
+		this.original_canvas.style.opacity = "0%";
 		this.canvas3d.style.display = "";
 		this.canvas_gui.style.display = "";
 	}
 	disable() {
 		this._enabled = false;
-		this.original_canvas.style.display = "";
+		this.original_canvas.style.opacity = "100%";
 		this.canvas3d.style.display = "none";
 		this.canvas_gui.style.display = "none";
 	}
@@ -1996,7 +1998,18 @@ class BobRank {
 		this.original_canvas = original_canvas;
 		this.canvas3d = canvas3d;
 		this.canvas_gui = canvas2dgui;
+
+		// depends on pixel scaling
+		this.canvas_gui.width = ig.system.realWidth;
+		this.canvas_gui.height = ig.system.realHeight;
+
+		this.resize(ig.system.screenWidth, ig.system.screenHeight);
+
 		this.context_gui = canvas2dgui.getContext("2d");
+		this.context_gui.imageSmoothingEnabled = false;
+		this.context_gui.scale(ig.system.contextScale,
+				       ig.system.contextScale);
+
 
 		this.disable();
 	}
@@ -2072,6 +2085,7 @@ class BobRank {
 						= this.parent.bind(this, force);
 					if (!me._enabled)
 						return parent();
+					return null;
 				}
 			});
 		});
@@ -2109,6 +2123,11 @@ class BobRank {
 					return me.get_map_from_screen_pos(p,
 									  res,
 									  x, y);
+				},
+				setCanvasSize: function(width, height,
+							noborder) {
+					this.parent(width, height, noborder);
+					me.resize(width, height);
 				}
 			});
 		});
@@ -2150,6 +2169,17 @@ class BobRank {
 						zoom);
 		this.renderer.clear_screen();
 	}
+
+	resize(width, height) {
+		if (!this.canvas3d)
+			return;
+		console.log("resiziing to ", width, height);
+		this.canvas3d.width = width;
+		this.canvas3d.height = height;
+		this.canvas3d.parentElement.style.width = width+"px";
+		this.canvas3d.parentElement.style.height = height+"px";
+		this.renderer.set_size(width, height);
+	}
 }
 
 export default class Mod extends Plugin {
@@ -2165,19 +2195,35 @@ export default class Mod extends Plugin {
 	async main() {
 		const origcanvas = ig.system.canvas;
 
+		const div = document.createElement("div");
+
+		const strippx = length => {
+			if (length.endsWith("px"))
+				return Number(length.slice(0, -2));
+			return Number(length);
+		};
+		Object.assign(div.style, {
+			position: "absolute",
+			left:"0", right:"0", top:"0", bottom: "0",
+			margin:"auto"
+		});
+
+		document.getElementById("game").appendChild(div);
+
 		const canvasplz = () => {
 			let canvas = document.createElement("canvas");
-			canvas.width = 570;
-			canvas.height = 320;
 			canvas.style.position = "absolute";
-			document.getElementById("game").appendChild(canvas);
+			canvas.style.width = "100%";
+			canvas.style.height = "100%";
+			div.appendChild(canvas);
 			return canvas;
 		};
 		const canvas3d = canvasplz();
 		const canvas2dgui = canvasplz();
 		canvas2dgui.style.zIndex = 1;
 
-		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui);
+		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui,
+					 div);
 		this.bobrank.enable();
 	}
 }

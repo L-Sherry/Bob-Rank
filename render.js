@@ -455,6 +455,9 @@ class BobRender {
 		this.context.clear(this.context.COLOR_BUFFER_BIT
 				   | this.context.DEPTH_BUFFER_BIT);
 	}
+	set_size(width, height) {
+		this.context.viewport(0, 0, width, height);
+	}
 
 	start_non_blending() {
 		this.context.useProgram(this.program);
