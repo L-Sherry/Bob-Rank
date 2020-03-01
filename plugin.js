@@ -1,355 +1,17 @@
 // SPDX-Identifier: MIT
 "use strict";
 
-const webglplz = (canvas) => {
-	const gl = canvas.getContext("webgl");
-	return gl;
-};
 
-const assert_ok = (context, thingname, thing, param) => {
-	const res = context[`get${thingname}Parameter`](thing, context[param]);
-	if (res)
-		return true;
-	console.assert(res, context[`get${thingname}InfoLog`](thing));
-	context[`delete${thingname}`](thing);
-	return false;
-};
+import { mulmat, getcol, mulscalar, mulvec, addvec, mulvecnorm,
+	 rotate_me, translate_matrix_before, translate_matrix, throw_at_wall,
+	 get_preimage_partial } from "./math.js";
 
-const compile_shader = (context, type, source) => {
-	const shader = context.createShader(context[type]);
-	context.shaderSource(shader, source);
-	context.compileShader(shader);
+import { webglplz, compile_shader, create_program, extractlocations, 
+	 fill_const_buffer, fill_dynamic_buffer,
+	 stuff_matrix_to_uniform,
+	 disable_blending, enable_blending,
+	 TextureTrove, BobRenderable } from "./render.js";
 
-	if (!assert_ok(context, "Shader", shader, "COMPILE_STATUS"))
-		return null;
-	return shader;
-};
-
-
-const create_program = (context, shaders) => {
-	const program = context.createProgram();
-	for (const shader of shaders)
-		context.attachShader(program, shader);
-	context.linkProgram(program);
-
-	if (!assert_ok(context, "Program", program, "LINK_STATUS"))
-		return null;
-	return program;
-};
-
-const extractlocations = (context, program, attribs, globals) => {
-	const ret = {};
-	for (const attrib of attribs) {
-		ret[attrib] = context.getAttribLocation(program, attrib);
-		console.assert(ret[attrib] !== -1);
-		context.enableVertexAttribArray(ret[attrib]);
-	}
-	for (const global of globals) {
-		ret[global] = context.getUniformLocation(program, global);
-		console.assert(ret[global] !== -1);
-	}
-	return ret;
-};
-
-// Fill a buffer
-const fill_buffer = (context, buffer, data, how) => {
-	console.assert(buffer !== undefined && data);
-	if (data.constructor !== Float32Array)
-		data = new Float32Array(data);
-	// where are my display lists ?
-	context.bindBuffer(context.ARRAY_BUFFER, buffer);
-	context.bufferData(context.ARRAY_BUFFER, data, how);
-};
-
-// Fill a mostly-constant buffer.
-const fill_const_buffer = (context, buffer, data) =>
-	fill_buffer(context, buffer, data, context.STATIC_DRAW);
-// Fill a buffer used once or almost once
-const fill_dynamic_buffer = (context, buffer, data) =>
-	fill_buffer(context, buffer, data, context.DYNAMIC_DRAW);
-
-const select_buffer = (context, buffer) => {
-	console.assert(buffer !== undefined);
-	context.bindBuffer(context.ARRAY_BUFFER, buffer);
-};
-
-
-
-const quat_to_mat = (r, x, y, z) => {
-	// unit quats only. If not, we are zooming by 1/|q|²
-	const sqrt2 = Math.sqrt(2);
-	r*= sqrt2;
-	x*= sqrt2;
-	y*= sqrt2;
-	z*= sqrt2;
-
-	const xy = x * y;
-	const yz = y * z;
-	const xz = x * z;
-	const xx = x * x;
-	const yy = y * y;
-	const zz = z * z;
-	const rx = r * x;
-	const ry = r * y;
-	const rz = r * z;
-	// basically what happens when multiplying a quat with its conj.
-	// https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
-	return [
-		[1-yy-zz,  xy-rz,  xz+ry, 0],
-		[xy+rz, 1-xx-zz, yz - rx, 0],
-		[xz - ry, yz + rx, 1-xx - yy, 0],
-		[0,0,0,1]
-	];
-};
-
-// Your off-the-mill matrix multiplication. Slow.
-const mulmat = (mat1, mat2) => mat1.map(
-	(line1) =>
-		line1.reduce(
-			(resline, val1, col1) =>
-				resline.map((resval, col2) =>
-					    resval + val1 * mat2[col1][col2]),
-			[0, 0, 0, 0])
-);
-
-const getcol = (mat, colnum) => mat.map(line => line[colnum]);
-const mulscalar = (vec, scalar) => vec.map(x => x * scalar);
-
-const mulvec = (mat, vec) =>
-	mat.map(l => l.reduce((a,v,i)=> a + v * vec[i],0));
-
-const addvec = (vec1, vec2) => vec1.map((v, i) => v + vec2[i]);
-
-const mulvecnorm = (mat, vec) => {
-	const mulled = mulvec(mat, vec);
-	return [mulled[0] / mulled[3],
-		mulled[1] / mulled[3],
-		mulled[2] / mulled[3]];
-};
-
-// rotate_x_angle = 0 -> xy plane is dislayed, pi/2: x(-z) is displayed
-const rotate_me = (rotate_x_angle, nudge_angle, nudge_amount) => {
-	// so, we want to rotate by angle A around x axis.
-	// cos(a/2), sin(a/2), 0, 0
-	rotate_x_angle *= 0.5;
-	const r = Math.cos(rotate_x_angle);
-	// but this is srank, we want to fudge that a bit and not use x axis,
-	// but something like (1, cos(nudge)*amount, sin(nudge)*amount)
-	// but we gotta normalize that first. since hypot(y,z) = amount,
-	// the length of that axis is hypot(1, amount)
-	// if we multiply that with our sin(a/2) above, then we have this
-	// sin(a/2)/hypot(1, amount) * (1, cos(nudge)*amount, sin(nudge)*amount)
-	const x = Math.sin(rotate_x_angle)/Math.hypot(1, nudge_amount);
-	const x_nudge_amount = x * nudge_amount;
-	const y = x_nudge_amount * Math.cos(nudge_angle);
-	const z = x_nudge_amount * Math.sin(nudge_angle);
-	return quat_to_mat(r, x, y, z);
-};
-
-// Change the matrix to apply a translation before the matrix transformation.
-// i.e. this does matrix = matrix * translation_matrix
-// this assumes matrix has [0, 0, 0, 1] as last line (i.e. no projection)
-const translate_matrix_before = (matrix, x, y, z) => {
-	// [a, b, c, x']   [1, 0, 0, x]   [a, b, c, ax + by + cz + x']
-	// [d, e, f, y'] * [0, 1, 0, y] = [d, e, f, dx + ey + fz + y']
-	// [g, h, j, z']   [0, 0, 1, z]   [g, h, j, gx + hy + jz + z']
-	// [0, 0, 0, 1 ]   [0, 0, 0, 1]   [0, 0, 0, 1]
-	// You're ENGINEERS ! You don't write fors, you UNROLL THAT LOOP !
-	// -- Teacher
-	const dot_me = l => l[3] += l[0] * x + l[1] * y + l[2] * z;
-	dot_me(matrix[0]);
-	dot_me(matrix[1]);
-	dot_me(matrix[2]);
-};
-
-// Change the matrix to apply a translation after the matrix transformation.
-// i.e. this does matrix = translation_matrix * matrix
-// this assumes matrix has [0, 0, 0, 1] as last line (i.e. no projection)
-const translate_matrix = (matrix, x, y, z) => {
-	// [1, 0, 0, x]   [a, b, c, x']   [a, b, c, x + x']
-	// [0, 1, 0, y] * [d, e, f, y'] = [d, e, f, y + y']
-	// [0, 0, 1, z]   [g, h, j, z']   [g, h, j, z + z']
-	// [0, 0, 0, 1]   [0, 0, 0, 1 ]   [0, 0, 0, 1]
-	matrix[0][3] += x;
-	matrix[1][3] += y;
-	matrix[2][3] += z;
-};
-
-// throw to xy wall at z = min,
-// note that's i'm more or less assuming the game's coordinate system here.
-// i.e. x goes to left, y goes down and z impales you
-// but we still need to convert to the dreadfulded opengl screen coordinates,
-// where bottom left is (-1, -1) and top right is (1, 1) and the z is clipped
-// between -1 and 1.
-//
-// zmin and zmax must be negative, of course, since we are looking at negative
-// z values.
-const throw_at_wall = (fov, ratio, zmin, zmax) => {
-	// what do we want here ?
-	//
-	// we want to scale x and y by the distance from 0 to the z plane.
-	// but wait, z goes toward us, which mean, lower coordinates are
-	// farther than higher coordinates.
-	//
-	// The thing is that our camera will typically be at high heights,
-	// looking at z values below itself. since the camera is shifted at
-	// (0,0,0), this means that the z coordinates of things we look at is
-	// negative. So, we don't divide by z, we divide by -z.
-	//
-	// such as x = tan(fov/2) and z = 1 goes to projected x = 1
-	// and y = tan(fov/2) / ratio and z = 1 goes to projected y = -1
-	// for z: we want to scale [zmin, zmax] to [-1,1], apparently that's
-	// what the depth buffer want.
-	//
-	// where to start ?
-	//
-	const tanfov = Math.tan(fov/2);
-	const taninverse = 1/tanfov;
-
-	// scale x and y by -1 / z (trivial utilization of fourth coordinate)
-	// [[1, 0, 0, 0]
-	//  [0, 1, 0, 0]
-	//  [0, 0, 1, 0]
-	//  [0, 0, -1, 0]]
-	//
-	// (tanfov, tanfov/ratio, 1, 0) must be rendered at (1, -1),
-	// so divide x by tanfov and y by -tanfov/ratio
-	//
-	// [[1/tanfov, 0, 0, 0]
-	//  [0, -ratio/tanfov, 0, 0]
-	//  [0, 0, 1, 0]
-	//  [0, 0, -1, 0]]
-	//
-	// now, zmin must be mapped to -1 and zmax to 1
-	// this would have been simple, if it wasn't for the fact that z
-	// is ALSO divided by the fourth coordinate, which is -z.
-	//
-	// so, zmin must be mapped to a value, which, when divided by -zmin,
-	//     maps to -1... so zmin must map to -(-zmin) = zmin
-	// and zmax must be mapped to a value, which, when divided by -zmax,
-	//     maps to 1... so zmax must map to -zmax
-	//
-	// a stupid affine function. zmax-zmin must be mapped to a difference
-	// of -zmax - zmin, so multiply by -(zmax + zmin)/(zmax - zmin)
-	// aka (zmax + zmin)/(zmin - zmax)
-	const divisor = 1/(zmin-zmax);
-	//
-	// and zmax must still map to -zmax, but now it maps to
-	// zmax * (zmax + zmin)/(zmin-zmax), so just add
-	// -zmax - zmax * (zmax + zmin)/(zmin-zmax) to the result
-	// = (-zmin * zmax + zmax² - zmax² - zmax * zmin)/(zmin-zmax)
-	// = -2 zmin*zmax / (zmin-zmax)
-	return [
-		[taninverse, 0, 0, 0],
-		[0, -ratio*taninverse, 0, 0],
-		[0, 0, (zmax+zmin)*divisor, -2*zmax*zmin*divisor],
-		[0, 0, -1, 0]
-	];
-	// see ? math is easy !
-};
-
-const stuff_matrix_to_uniform = (context, mat_location, matrix) => {
-	// let's pray it's the same order as mine...
-	// ...of course NOT. What was I thinking ?!
-	const flattened = Float32Array.of(
-		matrix[0][0], matrix[1][0], matrix[2][0], matrix[3][0],
-		matrix[0][1], matrix[1][1], matrix[2][1], matrix[3][1],
-		matrix[0][2], matrix[1][2], matrix[2][2], matrix[3][2],
-		matrix[0][3], matrix[1][3], matrix[2][3], matrix[3][3]
-	);
-
-	// if true was used instead of false, this would have transposed the
-	// matrix, simplifying this a lot, but non~. OpenGL ES forbid it.
-	context.uniformMatrix4fv(mat_location, false, flattened);
-};
-
-// This trashes your current ACTIVE_TEXTURE with it. hope that's ok with you !
-const create_texture = (context, image) => {
-	const texture = context.createTexture();
-	context.bindTexture(context.TEXTURE_2D, texture);
-	context.texImage2D(context.TEXTURE_2D, 0, context.RGBA,
-			   context.RGBA, context.UNSIGNED_BYTE, image);
-	// clamp to the edges, it's not like we will wrap textures or whatever.
-	// quite the contrary. Also webgl1 requires this for non-power of two ?
-	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S,
-			      context.CLAMP_TO_EDGE);
-	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T,
-			      context.CLAMP_TO_EDGE);
-	// "too small ? use linear... not sure how much time this will happen."
-	// turns out it happens a lot. But nearest is way too old-school ugly.
-	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER,
-			      context.LINEAR);
-	// show me those pixels, bro
-	context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER,
-			      context.NEAREST);
-	return texture;
-};
-
-const set_vertex_format = (context, location, components, stride, offset) => {
-	console.assert(location !== undefined);
-	context.vertexAttribPointer(location, components, context.FLOAT,
-				    false, stride * 4, offset * 4);
-};
-
-const assign_texture = (context, texture) => {
-	console.assert(texture);
-	context.bindTexture(context.TEXTURE_2D, texture);
-};
-
-const draw_triangles = (context, from, size) =>
-	context.drawArrays(context.TRIANGLES, from, size);
-
-const disable_blending = context => {
-	context.disable(context.BLEND);
-};
-const enable_blending = context => {
-	context.enable(context.BLEND);
-};
-const set_blending = (context, equation, func_source, func_dest, alpha) => {
-	// OK, here's how it goes:
-	// the equation for updating pixelz is:
-	// red = source_red * source_red_factor +- red * red_factor
-	// same for blue/green/alpha, except alpha equation can be set
-	// separatedly from rgb
-	// source_red_factor is set by blending function. Each factor can be
-	// blended differently for each color using a blending function, but
-	// probably our blending function won't use it.
-	// (note: probably our color buffer does not have alpha)
-	context.blendEquation(context[equation]);
-	context.blendFunc(context[func_source], context[func_dest]);
-	if (alpha !== undefined)
-		context.blendColor(alpha, alpha, alpha, alpha);
-};
-
-// add source and destination, like the canvas "lighter"
-const blend_lighter = context =>
-	set_blending(context, "FUNC_ADD", "ONE", "ONE");
-
-const blend_lighter_constant = (context, constant) => {
-	if (constant === 1)
-		// good luck alpha one
-		blend_lighter(context);
-	else
-		set_blending(context, "FUNC_ADD",
-			     "ONE", "ONE_MINUS_CONSTANT_ALPHA",
-			     constant);
-};
-// about lighter with non-1 alpha, it is defined as follows:
-//
-// Cs: source color
-// Cb: backdrop color (what's in the dest)
-// αs: source alpha (defined by globalAlpha...)
-// αb: backdrop alpha
-// lighter:
-// Co = αs x Cs + αb x Cb;
-// αo = αs + αb
-//
-
-// do alpha blending the way you are used to, with alpha = constant
-const blend_constant = (context, constant) => {
-	set_blending(context, "FUNC_ADD",
-		     "CONSTANT_ALPHA", "ONE_MINUS_CONSTANT_ALPHA", constant);
-};
 
 // maybe there is a way to iteratize it ?
 const forEachBackward = (array, callback, from) => {
@@ -387,40 +49,7 @@ class ColorCalculator {
 
 const color_calculator = new ColorCalculator();
 
-class TextureTrove {
-	constructor(context) {
-		this._textures = {};
-		this._wanted = new Set();
-		this._context = context;
-	}
-	// add and mark as wanted.
-	add(path, image) {
-		this._wanted.add(path);
-		let texture = this._textures[path];
-		if (texture === undefined) {
-			texture = create_texture(this._context, image);
-			this._textures[path] = texture;
-		}
-		return texture;
-	}
-	get(path) {
-		const ret = this._textures[path];
-		console.assert(ret, "getting unwanted texture");
-		return ret;
-	}
-	// delete everything not wanted since last cleanup()
-	cleanup() {
-		for (const path in this._textures) {
-			if (this._wanted.has(path))
-				continue;
-			this._context.deleteTexture(this._textures[path]);
-			delete this._textures[path];
-		}
-		this._wanted.clear();
-	}
-}
-
-// Geometry helpers
+// Geometry helpers to make tiles
 class BobGeo {
 	static _quad_horizontal(x, y, z, size_x, size_y, shift_x, shift_y) {
 		return [ x + shift_x, y + shift_y - size_y, z];
@@ -712,83 +341,6 @@ class BobGeo {
 			}
 	}
 }
-
-class BobRenderable {
-	constructor(context, locations_opaque, locations_blended) {
-		this.locations_opaque = locations_opaque;
-		this.locations_blended = locations_blended;
-
-		console.assert(locations_opaque.pos !== undefined
-			       && locations_opaque.tex_coord !== undefined
-			       && locations_blended.pos !== undefined
-			       && locations_blended.tex_coord !== undefined
-			       && locations_blended.color_blend
-					!== undefined);
-
-		this.context = context;
-		this.texture_trove = new TextureTrove(this.context);
-		this.buf = context.createBuffer();
-		// for opaque objects
-		this.textures_ranges = [];
-		// for alpha blendung
-		this.blending_ranges = [];
-	}
-
-	render_opaque(textures_ranges) {
-		select_buffer(this.context, this.buf);
-		// three floats for the position, two floats for texture pos
-		// total = 5
-		const { pos, tex_coord } = this.locations_opaque;
-
-		set_vertex_format(this.context, pos, 3, 5, 0);
-		set_vertex_format(this.context, tex_coord, 2, 5, 3);
-
-		if (textures_ranges === undefined)
-			textures_ranges = this.textures_ranges;
-
-		for (const textrange of textures_ranges) {
-			console.assert(textrange.texture && textrange.size
-				       && textrange.start !== undefined);
-			assign_texture(this.context, textrange.texture);
-			draw_triangles(this.context, textrange.start,
-				       textrange.size);
-		}
-	}
-	// assumes blending is already enabled
-	render_blended(textures_ranges) {
-		// maybe at one point we will put parameters in there ?
-		// or maybe not.
-		select_buffer(this.context, this.buf);
-
-		const { pos, tex_coord, color_blend } = this.locations_blended;
-		set_vertex_format(this.context, pos, 3, 5, 0);
-		set_vertex_format(this.context, tex_coord, 2, 5, 3);
-
-		if (textures_ranges === undefined)
-			textures_ranges = this.blending_ranges;
-		// let's do some alpha blendong
-		for (const blendrange of this.blending_ranges) {
-			assign_texture(this.context, blendrange.texture);
-			if (blendrange.mode === "normal")
-				blend_constant(this.context, blendrange.alpha);
-			else if (blendrange.mode === "lighter")
-				blend_lighter_constant(this.context,
-						       blendrange.alpha);
-			else
-				throw "unknown blending mode";
-			// set the uniform. doing this for each quad costs, but
-			// it's still probably less than changing textures all
-			// the time.
-			// (plus, it applies to at least 6 vertex, so it's
-			// 'uniform' enough)
-			this.context.uniform4fv(color_blend,
-						blendrange.blend_color);
-			draw_triangles(this.context, blendrange.start,
-				       blendrange.size);
-		}
-	}
-}
-
 
 class BobMap extends BobRenderable {
 	constructor(context, locations_opaque, locations_blended,
@@ -2158,6 +1710,7 @@ class BobEntities extends BobRenderable {
 	}
 }
 
+// TODO: extract part of it into render.js
 class BobRender {
 	constructor() {
 		this.context = null;
@@ -2350,37 +1903,15 @@ class BobRender {
 		const screen_to_gl = (scr, size) => scr * 2 / size - 1;
 		const gl_screen_x = screen_to_gl(screen_x, ig.system.width);
 		const gl_screen_y = -screen_to_gl(screen_y, ig.system.height);
+		// assume z is center of camera (i.e. lea)
 
-		const m = this.matrix_all;
-		// this is tricky, you know that ?
-		// first, we know z.
-		const z = this.camera_center.z;
-		// we know how much it contributes to w
-		const w_base = z * m[3][2] + m[3][3];
-		// so w = x * m30 + y * m31 + w_base
-		//
-		// now, we want (x,y) such as:
-		// (x * m00 + y * m01 + z*m02 + m03) / w=X
-		// (x * m10 + y * m11 + z*m12 + m13) / w=Y
-		//
-		// well, that's easy, just multiply by w.
-		// x * (m00 - X*m30) + y * (m01-X*m31) = w_base*X-z*m02-m03
-		// x * (m10 - Y*m30) + y * (m11-Y*m31) = w_base*Y-z*m12-m13
-		const A = [
-			[ m[0][0] - gl_screen_x * m[3][0],
-			  m[0][1] - gl_screen_x * m[3][1] ],
-			[ m[1][0] - gl_screen_y * m[3][0] /* 0 if no nudge */,
-			  m[1][1] - gl_screen_y * m[3][1] ]
-		];
-		const B = [ w_base * gl_screen_x - z * m[0][2] - m[0][3],
-			    w_base * gl_screen_y - z * m[1][2] - m[1][3]];
-		// cramer !
-		const detA = A[0][0] * A[1][1] - A[0][1] * A[1][0];
-		const x = (B[0] * A[1][1] - A[0][1] * B[1]) / detA;
-		const y = (A[0][0] * B[1] - A[1][0] * B[0]) / detA;
+		const calculated = get_preimage_partial(gl_screen_x,
+							gl_screen_y,
+							this.camera_center.z,
+							this.matrix_all);
 
-		result.x = x;
-		result.y = y;
+		result.x = calculated.x;
+		result.y = calculated.y;
 		// note: one of the caller is PlayerCrossHairController
 		// and passes coll.pos as parameter... but it does not
 		// use it for its sprite :(
