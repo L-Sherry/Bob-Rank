@@ -1941,10 +1941,27 @@ class BobRank {
 		this.moretileinfo = null;
 		this.map = null;
 		this.entities = null;
-		this.enable = false;
+		this._enabled = false;
+		this.original_canvas = null;
+		this.canvas3d = null;
+		this.canvas_gui = null;
+		this.context_gui = null;
 	}
 
-	async setup(canvas3d, canvas2dgui) {
+	enable() {
+		this._enabled = true;
+		this.original_canvas.style.display = "none";
+		this.canvas3d.style.display = "";
+		this.canvas_gui.style.display = "";
+	}
+	disable() {
+		this._enabled = false;
+		this.original_canvas.style.display = "";
+		this.canvas3d.style.display = "none";
+		this.canvas_gui.style.display = "none";
+	}
+
+	async setup(original_canvas, canvas3d, canvas2dgui) {
 		this.renderer.setup_canvas(canvas3d);
 
 		// TODO: put this in BobRenderable
@@ -1975,17 +1992,20 @@ class BobRank {
 						opaque_locations,
 						blend_locations,
 						this.moretileinfo);
-		// FIXME
-		this.enable = true;
 
+		this.original_canvas = original_canvas;
+		this.canvas3d = canvas3d;
 		this.canvas_gui = canvas2dgui;
 		this.context_gui = canvas2dgui.getContext("2d");
+
+		this.disable();
 	}
 
 	draw_layerz (parent) {
-		parent();
-		if (!this.enable)
+		if (!this._enabled) {
+			parent();
 			return;
+		}
 		if (!this.map) {
 			console.assert(ig.game.maps.length === 0);
 			return;
@@ -2012,7 +2032,7 @@ class BobRank {
 	}
 
 	get_screen_from_map_pos(parent, result, map_screen_x, map_screen_y) {
-		if (!this.enable)
+		if (!this._enabled)
 			return parent(result, map_screen_x, map_screen_y);
 		const ret = this.renderer.get_screen_from_map_pos(map_screen_x,
 								  map_screen_y);
@@ -2021,7 +2041,7 @@ class BobRank {
 		return result;
 	}
 	get_map_from_screen_pos(parent, result, screen_x, screen_y) {
-		if (!this.enable)
+		if (!this._enabled)
 			return parent(result, screen_x, screen_y);
 
 		const ret = this.renderer.get_map_from_screen_pos(screen_x,
@@ -2050,7 +2070,8 @@ class BobRank {
 				drawPostLayerSprites: function(force) {
 					const parent
 						= this.parent.bind(this, force);
-					return parent();
+					if (!me._enabled)
+						return parent();
 				}
 			});
 		});
@@ -2094,7 +2115,7 @@ class BobRank {
 	}
 
 	draw_gui() {
-		if (!this.enable)
+		if (!this._enabled)
 			return;
 		const stolen_context = ig.system.context;
 		const stolen_canvas = ig.system.canvas;
@@ -2108,7 +2129,7 @@ class BobRank {
 	}
 
 	clear_screen_and_everything() {
-		if (!this.enable)
+		if (!this._enabled)
 			return;
 		//const centerx = ig.camera._currentZoomPos.x;
 		//let centery = ig.camera._currentZoomPos.y;
@@ -2142,16 +2163,13 @@ export default class Mod extends Plugin {
 		this.bobrank.bind_to_game();
 	}
 	async main() {
-		// debug
-		ig.system.canvas.style.margin = "0px";
+		const origcanvas = ig.system.canvas;
 
 		const canvasplz = () => {
 			let canvas = document.createElement("canvas");
 			canvas.width = 570;
 			canvas.height = 320;
-			// FOR THE DEBUGGIN
 			canvas.style.position = "absolute";
-			canvas.style.top = "320px";
 			document.getElementById("game").appendChild(canvas);
 			return canvas;
 		};
@@ -2159,6 +2177,7 @@ export default class Mod extends Plugin {
 		const canvas2dgui = canvasplz();
 		canvas2dgui.style.zIndex = 1;
 
-		await this.bobrank.setup(canvas3d, canvas2dgui);
+		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui);
+		this.bobrank.enable();
 	}
 }
