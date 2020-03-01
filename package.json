@@ -1,8 +1,7 @@
 {
-	"name":"Bobrank",
-	"description": "Adds unforgettabe special effects on S-Rank",
+	"name":"Bob-Rank",
+	"description": "Adds unforgettable special effects on S-Rank",
 	"plugin": "plugin.js",
 	"version": "0.0.1",
-	"assets": ["assets/data/more-tile-infos.json" ]
+	"assets": [ "assets/data/more-tile-infos.json" ]
 }
-

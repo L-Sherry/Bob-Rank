@@ -1316,7 +1316,6 @@ class BobEntities extends BobRenderable {
 				overriden.type = "wall";
 		} else if (!cubesprite.size.z)
 			overriden.type = "ground";
-		return null;
 	}
 	prepare_sprites(spritearray) {
 		if (ig.system.context.globalAlpha !== 1)
@@ -1962,7 +1961,7 @@ class BobRank {
 		this.moretileinfo = null;
 		this.map = null;
 		this.entities = null;
-		this._enabled = false;
+		this._enabled = null;
 		this.original_canvas = null;
 		this.canvas3d = null;
 		this.canvas_gui = null;
@@ -1970,14 +1969,19 @@ class BobRank {
 	}
 
 	enable() {
+		if (this._enabled === true)
+			return;
 		this._enabled = true;
 		// note: i can't set display:none to the original canvas,
 		// because it is also used for mouse events.
 		this.original_canvas.style.opacity = "0%";
 		this.canvas3d.style.display = "";
 		this.canvas_gui.style.display = "";
+		this.clear_screen_and_everything();
 	}
 	disable() {
+		if (this._enabled === false)
+			return;
 		this._enabled = false;
 		this.original_canvas.style.opacity = "100%";
 		this.canvas3d.style.display = "none";
@@ -2033,6 +2037,12 @@ class BobRank {
 
 
 		this.disable();
+
+		// Call my modelChanged please.
+		// sc.model is defined in game.feature.model.game-model
+		// but it is an addon, initialized only when the game starts.
+		sc.Model.addObserver(sc.model, this);
+
 	}
 
 	draw_layerz (parent) {
@@ -2135,7 +2145,7 @@ class BobRank {
 			});
 			ig.addGameAddon(() => new BobRankAddon());
 		});
-		modulize("bobshiter", ["impact.base.system"], () => {
+		modulize("bobscreen", ["impact.base.system"], () => {
 			ig.System.inject({
 				getScreenFromMapPos: function(res, x, y) {
 					const p = this.parent.bind(this);
@@ -2156,6 +2166,20 @@ class BobRank {
 				}
 			});
 		});
+	}
+
+	modelChanged(observed, whatchanged /*, value*/) {
+		if (observed !== sc.model)
+			return;
+		if (!(whatchanged === sc.GAME_MODEL_MSG.COMBAT_RANK_CHANGED
+		      || whatchanged === sc.GAME_MODEL_MSG.COMBAT_MODE_CHANGED))
+			return;
+		if (observed.isSRank())
+			// S-Raaaaaaaaank !
+			this.enable();
+		else
+			// oh noes, no more S-Rank.
+			this.disable();
 	}
 
 	draw_gui() {
@@ -2244,6 +2268,5 @@ export default class Mod extends Plugin {
 
 		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui,
 					 div);
-		this.bobrank.enable();
 	}
 }
