@@ -2222,7 +2222,6 @@ class BobRank {
 	resize(width, height) {
 		if (!this.canvas3d)
 			return;
-		console.log("resiziing to ", width, height);
 		this.canvas3d.width = width;
 		this.canvas3d.height = height;
 		this.canvas3d.parentElement.style.width = width+"px";
