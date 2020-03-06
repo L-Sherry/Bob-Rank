@@ -2313,28 +2313,34 @@ class BobRank {
 		if (this.step !== "")
 			return;
 
-		this.step = "prepare";
+		this.step = "wait";
 		// start the fluff
-		const video = this.evotar.create_video();
+		const video = this.evotar.create();
 		Object.assign(video.style, {
 			position: "absolute",
 			width: "100%",
 			top:"0"
 		});
 
+		await new Promise(resolve => setTimeout(resolve, 1500));
+		if (this.step !== "wait")
+			return;
+		this.step = "fadeout";
 		ig.slowMotion.add(0.001, 1, "ZOMGBOBRANK");
+		ig.bgm.pause(ig.BGM_SWITCH_MODE.SLOW)
+		
 
-		await this.evotar.prepare_video();
-		if (this.step !== "prepare")
+		await new Promise(resolve => setTimeout(resolve, 4000));
+		if (this.step !== "fadeout")
 			return;
 		this.game_div.appendChild(video);
-		this.evotar.start_video();
+		this.evotar.run_the_evotar();
 
 		this.original_canvas.opacity = "0%";
 		this.whole_div.style.display = "block";
 
 		this.step = "start";
-		await this.evotar.wait_for_time(20);
+		await this.evotar.wait_for_transition();
 		if (this.step !== "start")
 			return;
 		this.step = "fake_load";
@@ -2348,7 +2354,8 @@ class BobRank {
 		this.canvas2dgui.style.display = "";
 		this.evotar.random_talk();
 
-		ig.slowMotion.clearNamed("ZOMGBOBRANK");
+		ig.slowMotion.clearNamed("ZOMGBOBRANK", 1);
+		ig.bgm.resume(ig.BGM_SWITCH_MODE.MEDIUM);
 
 		this.bobgame.enable();
 	}
@@ -2363,6 +2370,7 @@ class BobRank {
 		this.whole_div.style.display = "none";
 		this.evotar.destroy_video();
 		ig.slowMotion.clearNamed("ZOMGBOBRANK");
+		ig.bgm.resume(ig.BGM_SWITCH_MODE.FAST);
 		// play a evotar destroyed sound
 		this.bobgame.disable();
 		this.step="";
