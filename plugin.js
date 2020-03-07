@@ -2326,11 +2326,11 @@ class BobRank {
 		if (this.step !== "wait")
 			return;
 		this.step = "fadeout";
-		ig.slowMotion.add(0.001, 1, "ZOMGBOBRANK");
-		ig.bgm.pause(ig.BGM_SWITCH_MODE.SLOW)
+		ig.slowMotion.add(0.001, 2, "ZOMGBOBRANK");
+		ig.bgm.pause(ig.BGM_SWITCH_MODE.VERY_SLOW);
 		
 
-		await new Promise(resolve => setTimeout(resolve, 4000));
+		await new Promise(resolve => setTimeout(resolve, 5000));
 		if (this.step !== "fadeout")
 			return;
 		this.game_div.appendChild(video);
@@ -2339,22 +2339,28 @@ class BobRank {
 		this.original_canvas.opacity = "0%";
 		this.whole_div.style.display = "block";
 
+		// the original canvas behind all this is still at its true
+		// size, but we need to reduce its screen width and height
+		// so that it calculates mouse coordinates correctly.
+		ig.system.screenWidth = ig.system.screenWidth * 0.82;
+		ig.system.screenHeight = ig.system.screenHeight * 0.82;
+
+
 		this.step = "start";
 		await this.evotar.wait_for_transition();
 		if (this.step !== "start")
 			return;
 		this.step = "fake_load";
 		this.pane_div.insertBefore(video, this.pane_div.firstChild);
+		this.canvas2dgui.style.display = "";
 
 		await this.do_fake_load_animation();
 		if (this.step !== "fake_load")
 			return;
 		this.step = "running";
 		this.canvas3d.style.display = "";
-		this.canvas2dgui.style.display = "";
-		this.evotar.random_talk();
 
-		ig.slowMotion.clearNamed("ZOMGBOBRANK", 1);
+		ig.slowMotion.clearNamed("ZOMGBOBRANK", 3);
 		ig.bgm.resume(ig.BGM_SWITCH_MODE.MEDIUM);
 
 		this.bobgame.enable();
@@ -2371,14 +2377,53 @@ class BobRank {
 		this.evotar.destroy_video();
 		ig.slowMotion.clearNamed("ZOMGBOBRANK");
 		ig.bgm.resume(ig.BGM_SWITCH_MODE.FAST);
+		// recalculate the original screenWidth
+		sc.options._setDisplaySize();
+
 		// play a evotar destroyed sound
 		this.bobgame.disable();
 		this.step="";
 	}
 	async do_fake_load_animation() {
-		console.log("fake load animation");
-		// FIXME
-		return new Promise(resolve => setTimeout(resolve, 2000));
+		const context = this.canvas2dgui.getContext("2d");
+		const BAR_WIDTH = 370;
+		const BAR_HEIGHT = 20;
+		// center that
+		const BAR_X = Math.floor((ig.system.width - BAR_WIDTH) / 2);
+		const BAR_Y = Math.floor((ig.system.height - BAR_HEIGHT) / 2);
+
+		context.fillStyle = "black";
+		context.fillRect(0, 0, ig.system.width, ig.system.height);
+		// sie sehen...
+		context.fillStyle = "#ddd";
+		context.fillRect(BAR_X - 3, BAR_Y - 3,
+				 BAR_WIDTH + 6, BAR_HEIGHT + 6);
+		// ...die neuen...
+		context.fillStyle = "black";
+		context.fillRect(BAR_X - 2, BAR_Y - 2,
+				 BAR_WIDTH + 4, BAR_HEIGHT + 4);
+		context.fillStyle = "#ddd";
+
+		const TOTAL_TIME = 3500;
+		const STEPS = 6;
+		const STEP_NOMINAL_TIME = TOTAL_TIME / STEPS;
+		let current_time_like = 0;
+		const BAR_NOMINAL_STEP = BAR_WIDTH / STEPS;
+		for (let i = 0; i < STEPS; ++i) {
+
+			let next_time = i * STEP_NOMINAL_TIME;
+			next_time
+				+= (Math.random()-0.5) * STEP_NOMINAL_TIME / 3;
+			const wait = next_time - current_time_like;
+
+			let bar = i * BAR_NOMINAL_STEP;
+			bar += (Math.random() - 0.5) * BAR_NOMINAL_STEP / 2;
+			bar = Math.max(Math.min(bar, BAR_WIDTH), 0);
+			context.fillRect(BAR_X, BAR_Y, bar, BAR_HEIGHT);
+
+			await new Promise(resolve => setTimeout(resolve, wait));
+			current_time_like = next_time;
+		}
 	}
 
 
@@ -2387,6 +2432,9 @@ class BobRank {
 			return;
 		this.whole_div.style.width = width + "px";
 		this.whole_div.style.height = height + "px";
+
+		width = width * 0.82;
+		height = height * 0.82;
 		this.bobgame.resize(width, height);
 	}
 }

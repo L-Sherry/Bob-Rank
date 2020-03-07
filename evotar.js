@@ -93,10 +93,6 @@ class BobEvotar {
 		console.assert(this.can_transition);
 		await this.can_transition;
 	}
-
-	random_talk() {
-		// yes, this evotar will talk. a lot.
-	}
 }
 
 export { BobEvotar };
