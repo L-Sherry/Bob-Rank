@@ -47,6 +47,10 @@ class BobEvotar {
 		this.video.muted = true;
 		this.audio1.play();
 	}
+	freeze() {
+		// maybe find a way to turn this white ?
+		this.video.pause();
+	}
 	destroy_video() {
 		this.video.pause();
 		this.audio1.pause();

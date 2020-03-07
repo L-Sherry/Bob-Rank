@@ -2234,6 +2234,7 @@ class BobRank {
 		this.my_dir = my_dir;
 		this.evotar = new BobEvotar(my_dir);
 		this.step = "";
+		this.stop_events = null;
 	}
 
 	create_html() {
@@ -2321,6 +2322,7 @@ class BobRank {
 			width: "100%",
 			top:"0"
 		});
+		this.create_events();
 
 		await new Promise(resolve => setTimeout(resolve, 1500));
 		if (this.step !== "wait")
@@ -2328,7 +2330,7 @@ class BobRank {
 		this.step = "fadeout";
 		ig.slowMotion.add(0.001, 2, "ZOMGBOBRANK");
 		ig.bgm.pause(ig.BGM_SWITCH_MODE.VERY_SLOW);
-		
+
 
 		await new Promise(resolve => setTimeout(resolve, 5000));
 		if (this.step !== "fadeout")
@@ -2366,9 +2368,33 @@ class BobRank {
 		this.bobgame.enable();
 	}
 
-	stop() {
+	create_events() {
+		if (this.stop_events !== null)
+			return;
+
+		const steps = [
+			// play a evotar destroyed sound
+			{ type: "PLAY_SOUND", speed: 0.3, global: true,
+			  sound:"media/sound/misc/countdown-1.ogg"},
+			{ type: "PLAY_SOUND", global: true,
+			  sound:"media/sound/scenes/bomb-explosion.ogg" }
+		];
+		// those sounds need some loading before they can play
+		this.stop_events
+			= steps.map(step => new ig.EVENT_STEP[step.type](step));
+	}
+
+	async stop() {
 		if (this.step === "")
 			return;
+
+		this.step = "destroying";
+		this.stop_events.map(step => step.start());
+		this.evotar.freeze();
+
+		await new Promise(resolve => setTimeout(resolve, 500));
+		this.step = "";
+
 		// must undo everything, at whatever step we are.
 		this.canvas3d.style.display = "none";
 		this.canvas2dgui.style.display = "none";
@@ -2380,7 +2406,15 @@ class BobRank {
 		// recalculate the original screenWidth
 		sc.options._setDisplaySize();
 
-		// play a evotar destroyed sound
+		const crashedmsg
+			= "CrossCode 2 [Evotar Lachsen]: Unexpected Error";
+
+		const ar_msg = new ig.EVENT_STEP.SHOW_AR_MSG(
+			{ text: crashedmsg, entity: {player:true}, time: 5,
+			  mode: "NO_LINE", color: "RED" }
+		);
+		ar_msg.start();
+
 		this.bobgame.disable();
 		this.step="";
 	}
@@ -2404,8 +2438,8 @@ class BobRank {
 				 BAR_WIDTH + 4, BAR_HEIGHT + 4);
 		context.fillStyle = "#ddd";
 
-		const TOTAL_TIME = 3500;
-		const STEPS = 6;
+		const TOTAL_TIME = 4500;
+		const STEPS = 8;
 		const STEP_NOMINAL_TIME = TOTAL_TIME / STEPS;
 		let current_time_like = 0;
 		const BAR_NOMINAL_STEP = BAR_WIDTH / STEPS;
