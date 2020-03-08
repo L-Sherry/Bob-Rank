@@ -1096,8 +1096,8 @@ class BobMap extends BobRenderable {
 			// this is nonsense, but it happens.
 			min_scr_x = Math.max(min_scr_x, 0);
 			min_scr_y = Math.max(min_scr_y, 0);
-			max_scr_x = Math.max(max_scr_x, map.width);
-			max_scr_y = Math.max(max_scr_y, map.height);
+			max_scr_x = Math.min(max_scr_x, map.width);
+			max_scr_y = Math.min(max_scr_y, map.height);
 
 			for (let scr_x = min_scr_x; scr_x < max_scr_x; ++scr_x)
 				for (let scr_y = min_scr_y; scr_y < max_scr_y;
