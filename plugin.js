@@ -592,6 +592,8 @@ class BobMap extends BobRenderable {
 				} else if (certain < 0)
 					return { certitude: -1 };
 			}
+			if (my_tile.quad_type.startsWith("IGNORE_"))
+				return ret;
 
 			if (ret.index === undefined)
 				south.length = 0;
@@ -728,7 +730,7 @@ class BobMap extends BobRenderable {
 
 			let tile = map_info.maps[0].data[screen_y][screen_x];
 			let true_tile = true;
-			let quad_type = "GROUND";
+			let quad_type = "IGNORE_GROUND";
 			if (tile === 0) {
 				true_tile = false;
 				for (let map of map_info.maps) {
@@ -741,6 +743,9 @@ class BobMap extends BobRenderable {
 
 			if (tile === 0 || quad_type === "DELETE")
 				continue;
+			if (quad_type.startsWith("IGNORE_"))
+				true_tile = false;
+
 
 			const tile_pos = {
 				map_x: screen_x, map_y, map_z: min_map_z,
@@ -770,7 +775,7 @@ class BobMap extends BobRenderable {
 			const tile_pos = {
 				map_x: screen_x, map_y, map_z,
 				tile,
-				true_tile: quad_type !== "GROUND",
+				true_tile: quad_type !== "IGNORE_GROUND",
 				quad_type,
 				map_info
 			};
@@ -1895,7 +1900,7 @@ class MoreTileInfos {
 	static get_type(set_info, tileno) {
 		const set = set_info.by_tileno[tileno];
 		if (!set)
-			return "GROUND";
+			return "IGNORE_GROUND";
 		return set.by_tileno[tileno].type;
 	}
 	static get_default(set_info, tileno, type) {
@@ -1908,7 +1913,7 @@ class MoreTileInfos {
 		path = path.replace(/.*[/]/, "");
 		let ret = this.tileinfo[path];
 		if (!ret) {
-			ret = { get_type: () => "BORDER_NORTH",
+			ret = { get_type: () => "IGNORE_GROUND",
 				get_default: () => null,
 				found: false };
 		}
