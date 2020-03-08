@@ -503,6 +503,13 @@ class BobMap extends BobRenderable {
 		return line[map_x] || null;
 	}
 
+	// the actual dreadful height reconstruction algorithm.
+	// tiles contains a list of tiles at the current position on the screen
+	// south contains a list of tiles at the screen position just below us
+	// left contains a list of tiles at the screen position just left of us
+	//
+	// this adjusts the tiles array in-place, as well as changing the map_z
+	// of tiles in it.
 	handle_tiles_build_map(tiles, left, south) {
 		if (tiles.length === 0)
 			return;
@@ -545,9 +552,11 @@ class BobMap extends BobRenderable {
 
 		const guess_from_block = () => {
 			if (current_block !== null) {
-				return { z_action: "keepz_north",
-					 from_z: current_block.map_z,
-					 certitude: 20 };
+				const ret = { z_action: "keepz_north",
+					      from_z: current_block.map_z,
+					      certitude: 20 };
+				current_block = null;
+				return ret;
 			}
 			return { certitude: 0 };
 		};
@@ -700,7 +709,7 @@ class BobMap extends BobRenderable {
 		return ret;
 	}
 
-	// screen_x and y are in "tiles" unit
+	// screen_x and y are in "tiles" unit and are positions on the screen
 	// returns an array sorted by ascending "z-index".
 	// entries are:
 	// {map_x, map_y, map_z,
