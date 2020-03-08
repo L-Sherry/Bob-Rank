@@ -2313,12 +2313,12 @@ class BobRank {
 				       ig.system.contextScale);
 
 
-		this.disable();
+		this.enable();
 
 		// Call my modelChanged please.
 		// sc.model is defined in game.feature.model.game-model
 		// but it is an addon, initialized only when the game starts.
-		sc.Model.addObserver(sc.model, this);
+		//sc.Model.addObserver(sc.model, this);
 
 		window.reloadBobrankJson = () => {
 			this.moretileinfo
