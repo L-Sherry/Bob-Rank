@@ -15,13 +15,16 @@
 		"brickwalls (are they entities or map stuff ?)": {
 		},
 
+		"upper tiles of doom (why they exist ? always have wrong z)": {
+			"0,64":  "DELETE",
+			"16,64": "DELETE",
+			"32,64": "DELETE",
+			"48,64": "DELETE",
+			"64,64": "DELETE",
+			"80,64": "DELETE"
+		},
+
 		"TODO separate in sets": {
-		"0,64": "IGNORE_WALL_NORTH",
-		"16,64": "IGNORE_WALL_NORTH",
-		"32,64": "IGNORE_WALL_NORTH",
-		"48,64": "IGNORE_WALL_NORTH",
-		"64,64": "IGNORE_WALL_NORTH",
-		"80,64": "IGNORE_WALL_NORTH",
 
 
 		"0,80": "WALL_NORTH",

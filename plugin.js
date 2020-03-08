@@ -739,7 +739,7 @@ class BobMap extends BobRenderable {
 			} else
 				quad_type = tileinfo.get_type(tile - 1);
 
-			if (tile === 0)
+			if (tile === 0 || quad_type === "DELETE")
 				continue;
 
 			const tile_pos = {
@@ -770,7 +770,7 @@ class BobMap extends BobRenderable {
 			const tile_pos = {
 				map_x: screen_x, map_y, map_z,
 				tile,
-				true_tile: tile !== "GROUND",
+				true_tile: quad_type !== "GROUND",
 				quad_type,
 				map_info
 			};
@@ -888,6 +888,9 @@ class BobMap extends BobRenderable {
 				if (tile === -1)
 					return;
 				const tile_pos = get_tile(draw_info);
+				if (!tile_pos)
+					// can happen for DELETE tiles.
+					return;
 				draw_tile(tile, tile_pos, map_info);
 				++count;
 			});
@@ -1917,6 +1920,8 @@ class MoreTileInfos {
 		if (tileinfo.startsWith("IGNORE_"))
 			return "ignore"; // decorative in first map
 		switch (tileinfo) {
+		case "DELETE":
+			return "delete"; // delete them, do not even draw them.
 		case "BORDER_SOUTH":
 		case "BORDER_SW":
 		case "BORDER_SE":
