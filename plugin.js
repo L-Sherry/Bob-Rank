@@ -563,9 +563,9 @@ class BobMap extends BobRenderable {
 					if (map_z < my_tile.map_z)
 						continue;
 					// it's a ground.
-					if (map_z === my_tile.map_z)
+					/*if (map_z === my_tile.map_z)
 						certain = 10;
-					else
+					else*/
 						certain = 5;
 					break;
 				case "rise": // rise on top of south tile
