@@ -836,26 +836,48 @@
 		},
 		"rocky2": {
 			"192,64+96,80": "TYPE1 DEFAULT",
-			"192,144+32,16": "BORDER_SE",
-			"224,144+32,16": "WALL_NORTH",
-			"256,144+32,16": "BORDER_SW"
+			"192,144+32,16": "BORDER_NW",
+			"192,160+32,16": "BORDER_WEST",
+			"224,144+32,16": "BORDER_NORTH",
+			"256,144+32,16": "BORDER_NE",
+			"256,160+32,16": "BORDER_EAST"
 		},
+		"grassy": {
+			"288,64+96,80": "TYPE1 DEFAULT",
+			"288,144+32,16": "BORDER_NW",
+			"288,160+32,16": "BORDER_WEST",
+			"320,144+32,16": "BORDER_NORTH",
+			"352,144+32,16": "BORDER_NE",
+			"352,160+32,16": "BORDER_EAST"
+		},
+
 
 		"level changes": {
 			"192,208+112,32": "GROUND"
 		},
 
-		"waterwalls": {
+		"waterwalls and borders": {
 			"384,112": "BOTTOM_WALL_NE",
 			"400,128": "BOTTOM_WALL_NE",
 			"416,128+32,16": "BOTTOM_WALL_NORTH",
 			"448,128": "BOTTOM_WALL_NW",
 			"464,112": "BOTTOM_WALL_NW",
 
-			"480,96+32,32": "BOTTOM_WALL_NE",
-			"480,128+32,16": "BOTTOM_WALL_NORTH",
-			"480,144+32,32": "BOTTOM_WALL_NW",
-			"480,176+32,16": "BOTTOM_WALL_NORTH"
+			"480,96+32,32": "BOTTOM_WALL_NE DEFAULT",
+			"480,128+32,16": "BOTTOM_WALL_NORTH DEFAULT",
+			"480,144+32,32": "BOTTOM_WALL_NW DEFAULT",
+			"480,176+32,16": "BOTTOM_WALL_NORTH",
+
+
+			"384,144+32,16": "BORDER_NW",
+			"384,160+32,16": "BORDER_WEST",
+			"416,144+32,16": "BORDER_NORTH",
+			"448,144+32,16": "BORDER_NE",
+			"448,160+32,16": "BORDER_EAST"
+		},
+
+		"blackness (like your mind, mister sidwell)": {
+			"96,64": "GROUND"
 		},
 
 		"waterfalls": {
