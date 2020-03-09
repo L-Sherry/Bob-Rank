@@ -1315,7 +1315,6 @@ class BobEntities extends BobRenderable {
 		    moretileinfo) {
 		super(context, locations_opaque, locations_blended);
 		this.moretileinfo = moretileinfo;
-		this.camera_z = null;
 	}
 	clear() {
 		this.sprites_by_texture = {};
@@ -1325,13 +1324,12 @@ class BobEntities extends BobRenderable {
 		this.textures_ranges.length = 0;
 	}
 	do_overrides(path, cubesprite, overriden) {
-		if (cubesprite.gui && cubesprite.pos.z >= 142) {
-			const z = this.camera_z;
+		if (cubesprite.bobrank_set_z !== undefined) {
+			const z = cubesprite.bobrank_set_z;
 			const y = cubesprite.pos.y - cubesprite.pos.z + z;
 			const x = cubesprite.pos.x;
 			overriden.pos = { x, y, z };
 		}
-
 
 		// I have LOADS of reserves on how the game classify ground
 		// and wall sprites.
@@ -1363,7 +1361,7 @@ class BobEntities extends BobRenderable {
 		} else if (!cubesprite.size.z)
 			overriden.type = "ground";
 	}
-	prepare_sprites(spritearray) {
+	prepare_sprites(spritearray, hyperz_value, set_z_value) {
 		if (ig.system.context.globalAlpha !== 1)
 			console.log("global alpha not one !");
 		const by_texture = this.sprites_by_texture;
@@ -1388,10 +1386,12 @@ class BobEntities extends BobRenderable {
 
 			let has_opaque = true;
 			let has_blending = false;
-			if (cs.gui && cs.pos.z >= 142) {
+			if (cs.gui && cs.pos.z >= hyperz_value) {
+				cs.bobrank_set_z = set_z_value;
 				this.hyperheight_by_z.push({sprite, path});
 				continue;
-			}
+			} else
+				delete cs.bobrank_set_z;
 			if (cs.renderMode
 			    || Number(cs.alpha) !== 1
 			    || cs.overlay.color) {
@@ -1751,8 +1751,6 @@ class BobEntities extends BobRenderable {
 		return i;
 	}
 	finalize(z_for_hyperheights) {
-		this.camera_z = z_for_hyperheights;
-
 		const everything = [];
 		let i = 0;
 		i = this.finalize_opaque_sprites(everything, i);
@@ -2109,9 +2107,13 @@ class BobRank {
 		this.renderer.enable_depth();
 
 		this.entities.clear();
-		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
-		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
-		this.entities.finalize(this.renderer.camera_center.z);
+		const camera_z = this.renderer.camera_center.z;
+		const high_z = camera_z + 128;
+		this.entities.prepare_sprites(ig.game.renderer.spriteSlots,
+					      high_z, camera_z);
+		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots,
+					      high_z, camera_z);
+		this.entities.finalize(camera_z);
 		this.map.render_opaque();
 		this.map.render_objectlayerviews(false);
 		this.entities.render_opaque();
