@@ -1536,10 +1536,8 @@ class BobEntities extends BobRenderable {
 			let size;
 			for (let i = 0; i < total_size; i+= size) {
 				const src_i = (i + initial_offset) % patch_size;
-				if (i + patch_size < total_size)
-					size = patch_size - src_i;
-				else
-					size = total_size - i;
+				size = Math.min(patch_size - src_i,
+						total_size - i);
 				cb(src_i, size, i);
 			}
 		};
