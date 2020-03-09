@@ -1606,7 +1606,8 @@ class BobEntities extends BobRenderable {
 	}
 	handle_one_sprite(result_vector, path, sprite) {
 		const cs = sprite.cubeSprite;
-		let is_ground = sprite.ground;
+		const is_game_ground = sprite.ground;
+		let is_ground = is_game_ground;
 		// i have some reserves on how the game classify ground
 		// sprites from wall sprites.
 		// FIXME: this affects ground removal, is that intended ?
@@ -1623,7 +1624,7 @@ class BobEntities extends BobRenderable {
 		const pos = overriden.pos || cs.pos;
 
 		const src_quad_tex
-			= BobEntities.get_src_quad_tex(cs, is_ground);
+			= BobEntities.get_src_quad_tex(cs, is_game_ground);
 
 		if (!src_quad_tex)
 			return 0;
