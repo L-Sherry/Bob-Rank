@@ -1750,7 +1750,7 @@ class BobEntities extends BobRenderable {
 		}
 		return i;
 	}
-	finalize(z_for_hyperheights) {
+	finalize() {
 		const everything = [];
 		let i = 0;
 		i = this.finalize_opaque_sprites(everything, i);
@@ -2113,7 +2113,7 @@ class BobRank {
 					      high_z, camera_z);
 		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots,
 					      high_z, camera_z);
-		this.entities.finalize(camera_z);
+		this.entities.finalize();
 		this.map.render_opaque();
 		this.map.render_objectlayerviews(false);
 		this.entities.render_opaque();
