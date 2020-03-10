@@ -683,48 +683,43 @@ class BobMap extends BobRenderable {
 		for (let levelno = 0; levelno < maxlevels; ++levelno) {
 			const level = levels[levelno];
 
-			const maps = [];
+			const next_level = levels[levelno + 1];
+
+			const z_min = level.height;
+			const z_max = next_level ? next_level.height : 9999999;
+
+			const map_infos = [];
 			for (const map of level.maps) {
 				const distance = Number(map.distance);
 				if (distance !== 1)
 					continue;
 				if (!map.tiles.data)
 					continue;
-				maps.push(map);
+				const mapinfo = this.get_mapinfo(map, z_min,
+								 z_max);
+				mapinfo.map = map;
+				map_infos.push(mapinfo);
 			}
 
-			if (!maps.length)
+			if (!map_infos.length)
 				continue;
-
-			const next_level = levels[levelno + 1];
-
-			const z_min = level.height;
-			const z_max = next_level ? next_level.height : 9999999;
-
-			const mapinfo = this.get_mapinfo(maps[0], z_min, z_max);
-			mapinfo.maps = maps;
-			ret.push(mapinfo);
-			// TODO: detect object maps here and store them
+			ret.push(map_infos);
 		}
 		return ret;
 	}
 
 	// may return null
-	static find_main_tile_in_maps(map_info, screen_x, screen_y) {
-		const { min_map_z, tileinfo } = map_info;
-		const map_y = screen_y + min_map_z;
-
+	static find_main_tile_in_maps(map_infos, screen_x, screen_y) {
 		const ret = {
-			map_x: screen_x, map_y, map_z: min_map_z,
-			true_tile: false,
-			map_info
+			map_x: screen_x, map_y: null, map_z: null,
+			quad_type: null, true_tile: false, map_info: null
 		};
 
-		for (const map of map_info.maps) {
-			const tile = map.data[screen_y][screen_x] - 1;
+		for (const map_info of map_infos) {
+			const tile = map_info.map.data[screen_y][screen_x] - 1;
 			if (tile === -1)
 				continue;
-			const quad_type = tileinfo.get_type(tile);
+			const quad_type = map_info.tileinfo.get_type(tile);
 			if (quad_type === "DELETE")
 				continue;
 			if (quad_type.startsWith("IGNORE_")) {
@@ -735,12 +730,18 @@ class BobMap extends BobRenderable {
 				// drawn, so it needs a position.
 				ret.tile = tile;
 				ret.quad_type = quad_type;
+				ret.map_z = map_info.min_map_z;
+				ret.map_y = screen_y + ret.map_z;
+				ret.map_info = map_info;
 			} else {
 				// there shouldn't be more than one true tile
 				// per level ... hopefully.
 				ret.tile = tile;
 				ret.quad_type = quad_type;
 				ret.true_tile = true;
+				ret.map_z = map_info.min_map_z;
+				ret.map_y = screen_y + ret.map_z;
+				ret.map_info = map_info;
 				return ret;
 			}
 		}
@@ -774,20 +775,20 @@ class BobMap extends BobRenderable {
 
 		const tiles = [];
 		const find_main_tile = this.constructor.find_main_tile_in_maps;
-		for (const map_info of base_maps) {
+		for (const map_infos of base_maps) {
 
-			const tile_pos = find_main_tile(map_info, screen_x,
+			const tile_pos = find_main_tile(map_infos, screen_x,
 							screen_y);
 			if (tile_pos)
 				tiles.push(tile_pos);
 		}
 
 		for (const objectlayer of layerviews) {
-			const { min_scr_y, max_scr_y, map_info } = objectlayer;
+			const { min_scr_y, max_scr_y, map_infos } = objectlayer;
 			if (!(min_scr_y <= screen_y && screen_y < max_scr_y))
 				continue;
 
-			const tile_pos = find_main_tile(map_info, screen_x,
+			const tile_pos = find_main_tile(map_infos, screen_x,
 							screen_y);
 			if (tile_pos)
 				tiles.push(tile_pos);
@@ -1072,30 +1073,39 @@ class BobMap extends BobRenderable {
 			layerview.max_scr_x = layerview.min_scr_x + size_x;
 
 			const map_y = Math.floor(pos.y / tilesize);
-			const size_y = Math.floor(size.y / tilesize);
+			const size_y = Math.ceil(size.y / tilesize);
 
 			const map_z = Math.floor(pos.z / tilesize);
-			const size_z = Math.floor(size.z / tilesize);
+			const size_z = Math.ceil(size.z / tilesize);
 
 			layerview.min_scr_y = map_y - map_z - size_z;
 			layerview.max_scr_y = map_y + size_y - map_z;
 
+			// now, i need the actual level of the object layer view
+			// because the game does not give it.
+
+			const maps = find_level(map);
 			// i have to construct a map_info for each oddball z
-			// position given by the object layer view...
-			layerview.map_info
-				= this.get_mapinfo(map, pos.z, pos.z + size.z);
+			// position given by the object layer view... for each
+			// map.
+			const min_z = pos.z;
+			const max_z = pos.z + size.z;
+
+			layerview.map_infos = maps.map(map => {
+				const ret = this.get_mapinfo(map, min_z, max_z);
+				ret.object_map = i;
+				ret.map = map;
+				return ret;
+			});
 			// used to match map info to us.
 			layerview.index = i;
-			layerview.map_info.object_map = i;
-			const maps = find_level(map);
-			layerview.map_info.maps = maps;
 		});
 	}
 
 	make_layerviews_draw(result_vector, current_i, draw_map) {
-		const handle_layerview_tile = (map, scr_x, scr_y, index,
+		const handle_layerview_tile = (scr_x, scr_y, index,
 					       map_info) => {
-			const tile = map.data[scr_y][scr_x] - 1;
+			const tile = map_info.map.data[scr_y][scr_x] - 1;
 			if (tile === -1)
 				return;
 
@@ -1122,8 +1132,8 @@ class BobMap extends BobRenderable {
 
 		for (const layerview of this.layerviews) {
 			let { min_scr_x, min_scr_y, max_scr_x, max_scr_y,
-			      index, map_info } = layerview;
-			const any_map = map_info.maps[0];
+			      index, map_infos } = layerview;
+			const any_map = map_infos[0].map;
 
 			// this is nonsense, but it happens.
 			min_scr_x = Math.max(min_scr_x, 0);
@@ -1137,25 +1147,28 @@ class BobMap extends BobRenderable {
 			layerview.tex_ranges = [];
 			let tex_range = {};
 
-			for (const map of map_info.maps) {
-				const path = map.tiles.path;
+			for (const map_info of map_infos) {
+				const path = map_info.map.tiles.path;
 				if (path !== tex_range.path) {
 					const texture
 						= this.texture_trove.get(path);
 					tex_range = { start: current_i, texture,
-						      mode: "normal", alpha: 1};
+						      mode: "normal", alpha: 1,
+						      blend_color: [0,0,0,0] };
 				}
 				iterate_tiles((scr_x, scr_y) =>
-					handle_layerview_tile(map, scr_x, scr_y,
+					handle_layerview_tile(scr_x, scr_y,
 							      index, map_info));
 				const size = current_i - tex_range.start;
 				if (size && !tex_range.size)
 					layerview.tex_ranges.push(tex_range);
 				tex_range.size = size;
 			}
-
-			console.assert(layerview.tex_ranges.length,
-				       "layerview without tiles ?");
+			// we may fail to pick up OLPlatform tiles here and
+			// there, don't fail hard on them.
+			if (!(layerview.entity instanceof ig.ENTITY.OLPlatform))
+				console.assert(layerview.tex_ranges.length,
+					       "layerview without tiles ?");
 		}
 		return current_i;
 	}
@@ -1212,11 +1225,13 @@ class BobMap extends BobRenderable {
 		for (const levelname in ig.game.levels)
 			add_texture_of_level(ig.game.levels[levelname]);
 
-		const get_info_if_base_map = maybe_base => (
-			base_maps.find(map_info => (
-				map_info.maps[0] === maybe_base
-			))
-		);
+		const get_info_if_base_map = maybe_base => {
+			for (const map_infos of base_maps)
+				for (const map_info of map_infos)
+					if (map_info.map === maybe_base)
+						return map_info;
+			return null;
+		};
 
 		// now iterate them
 
