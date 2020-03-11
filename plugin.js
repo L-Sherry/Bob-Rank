@@ -1874,7 +1874,7 @@ class MoreTileInfos {
 		});
 
 		const TYPE2_WALLS = [
-			"WALL_NE", "WALL_NORTH", "WALL_SE",
+			"WALL_NE", "WALL_NORTH", "WALL_NW",
 			"WALL_NORTH", "WALL_NORTH"
 		];
 
