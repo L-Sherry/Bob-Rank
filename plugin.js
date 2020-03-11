@@ -1901,7 +1901,7 @@ class MoreTileInfos {
 		const add_shift = (sx, sy, type) => {
 			const tileno = x + sx + (y + sy) * 512 / 16;
 			by_tile[tileno] = { type: type, is_default };
-			if (is_default && defaults[type] === undefined)
+			if (is_default)
 				defaults[type] = tileno;
 		};
 		console.assert(info.length === 1, "unsupported stuff", info);
