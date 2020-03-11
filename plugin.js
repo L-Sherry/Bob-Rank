@@ -420,12 +420,12 @@ class BobMap extends BobRenderable {
 
 	static hidden_block_info(block) {
 		const base_x = Math.floor(block.coll.pos.x / 16);
-		const high_x = base_x + Math.ceil(block.coll.size.x / 16);
+		const high_x = base_x + Math.round(block.coll.size.x / 16);
 		const base_y = Math.floor(block.coll.pos.y / 16);
-		const high_y = base_y + Math.ceil(block.coll.size.y / 16);
+		const high_y = base_y + Math.round(block.coll.size.y / 16);
 
 		const base_z = Math.floor(block.coll.pos.z / 16);
-		const top_z = base_z + Math.ceil(block.coll.size.z / 16);
+		const top_z = base_z + Math.round(block.coll.size.z / 16);
 
 		// these bounds are large, they must be restricted depending
 		// on z.
