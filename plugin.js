@@ -15,6 +15,13 @@ const forEachBackward = (array, callback, from) => {
 		callback(array[idx], idx, array);
 };
 
+function* reversed(array, end = null) {
+	if (end === null)
+		end = array.length;
+	while (end --> 0)
+		yield array[end];
+}
+
 const sortWithKey = (array, key) => array.sort((a, b) => key(a) - key(b));
 
 
@@ -715,7 +722,13 @@ class BobMap extends BobRenderable {
 			quad_type: null, true_tile: false, map_info: null
 		};
 
-		for (const map_info of map_infos) {
+		// "in theory, there shouldn't be more than one true tile
+		// per level", i once said. Screw that, that's false. some
+		// bottom wall are actually transparent, so there is both a
+		// ground and the begining of a wall.
+		//
+		// How to resolve it ? well, iterate backward and pick the wall.
+		for (const map_info of reversed(map_infos)) {
 			const tile = map_info.map.data[screen_y][screen_x] - 1;
 			if (tile === -1)
 				continue;
@@ -734,8 +747,6 @@ class BobMap extends BobRenderable {
 				ret.map_y = screen_y + ret.map_z;
 				ret.map_info = map_info;
 			} else {
-				// there shouldn't be more than one true tile
-				// per level ... hopefully.
 				ret.tile = tile;
 				ret.quad_type = quad_type;
 				ret.true_tile = true;
