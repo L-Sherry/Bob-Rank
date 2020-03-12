@@ -274,22 +274,22 @@
 
 		"spikes down": {
 			"0,176": "WALL_NE",
-			"0,192": "BOTTOM_WALL_NE",
+			"0,192": "WALL_NE",
 
 			"16,176": "WALL_NW",
-			"16,192": "BOTTOM_WALL_NW",
+			"16,192": "WALL_NW",
 
-			"32,176": "BOTTOM_WALL_NE",
-			"48,192": "BOTTOM_WALL_NW",
+			"32,176": "WALL_NE",
+			"48,176": "WALL_NW",
 
-			"64,176+32,16": "BOTTOM_WALL_NORTH"
+			"64,176+32,16": "WALL_NORTH"
 		},
 		"spikes up": {
 			"32,192+32,32": "WALL_NORTH",
 			 "0,208": "WALL_NE",
 			"16,208": "WALL_NW",
-			 "0,224": "BOTTOM_WALL_NE",
-			"16,224": "BOTTOM_WALL_NW"
+			 "0,224": "WALL_NE",
+			"16,224": "WALL_NW"
 		},
 		"waterwall": {
 			"192,176": "BOTTOM_WALL_NE",
