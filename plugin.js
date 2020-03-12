@@ -510,6 +510,13 @@ class BobMap extends BobRenderable {
 		return line[map_x] || null;
 	}
 
+	// shift a tile's z coordinate while keeping the same 2d screen
+	// coordinate.
+	static shift_to_z(tile, wanted_map_z) {
+		tile.map_y += wanted_map_z - tile.map_z;
+		tile.map_z = wanted_map_z;
+	}
+
 	// the actual dreadful height reconstruction algorithm.
 	// tiles contains a list of tiles at the current position on the screen
 	// south contains a list of tiles at the screen position just below us
@@ -521,11 +528,8 @@ class BobMap extends BobRenderable {
 		if (tiles.length === 0)
 			return;
 
-		const shift_to_z = (tile, wanted_map_z) => {
-			const shift = wanted_map_z - tile.map_z;
-			tile.map_y += shift;
-			tile.map_z = wanted_map_z;
-		};
+		const shift_to_z
+			= this.constructor.shift_to_z.bind(this.constructor);
 		if (south)
 			south = Array.from(south);
 		else
@@ -821,6 +825,49 @@ class BobMap extends BobRenderable {
 		//const absolute_map_z_min = base_maps[0].min_map_z;
 
 		const find_tiles = this.find_tiles_at_pos.bind(this, base_maps);
+		const shift_to_z
+			= this.constructor.shift_to_z.bind(this.constructor);
+
+		const current_wall = [];
+		let floating_wall;
+
+		const update_wall = (tiles) => {
+			if (tiles.length === 0) {
+				// the wall ended up with nothing.
+				current_wall.length = 0;
+				floating_wall = true;
+				return;
+			}
+			// maybe check that tiles.length is 1 ?
+			const last_tile = tiles[tiles.length - 1];
+			if (!last_tile.quad_type) // there is no tile here.
+				return;
+			if (floating_wall
+			    && last_tile.quad_type.startsWith("WALL_")) {
+				current_wall.push(last_tile);
+				return;
+			}
+			// catches BORDER_SOUTH, BORDER_SW and even
+			// BORDER_SE_FLAT.
+			if (!last_tile.quad_type.startsWith("BORDER_S")) {
+				// sorry, not a floating wall.
+				current_wall.length = 0;
+				floating_wall = false;
+			}
+			if (!floating_wall) {
+				if (last_tile.quad_type.startsWith("BORDER_N"))
+					floating_wall = true;
+				return;
+			}
+			// we are at the end of a floating wall.
+			// now take the border, assume its z is correct and
+			// adjust the height of the walls they are connected to.
+			// This should only adjust floating walls (not
+			// connected to a ground)
+			let map_z = last_tile.map_z;
+			while (current_wall.length)
+				shift_to_z(current_wall.pop(), --map_z);
+		};
 
 		const draw_map = [];
 		for (let scr_x = 0; scr_x < this.mapWidth; ++scr_x) {
@@ -833,6 +880,10 @@ class BobMap extends BobRenderable {
 			const draw_col = new Array(this.mapHeight);
 			draw_map.push(draw_col);
 
+			// first element is, many times, a floating wall.
+			current_wall.length = 0;
+			floating_wall = true;
+
 			for (let scr_y = this.mapHeight; scr_y --> 0;) {
 				const left = scr_x ? draw_map[scr_x-1][scr_y]
 						   : null;
@@ -841,6 +892,9 @@ class BobMap extends BobRenderable {
 							 hidden_block_col,
 							 layer_views_col);
 				draw_col[scr_y] = tiles;
+
+				update_wall(tiles);
+
 				this.handle_tiles_build_map(tiles, left, south);
 			}
 		}
