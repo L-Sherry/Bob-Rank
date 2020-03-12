@@ -1159,6 +1159,8 @@ class BobMap extends BobRenderable {
 			let tex_range = {};
 
 			for (const map_info of map_infos) {
+				if (!map_info.map.tiles.data)
+					continue;
 				const path = map_info.map.tiles.path;
 				if (path !== tex_range.path) {
 					const texture
@@ -1224,6 +1226,8 @@ class BobMap extends BobRenderable {
 					continue;
 				const path = map.tiles.path;
 				const img = map.tiles.data;
+				if (!img)
+					continue;
 				const texture = this.texture_trove.add(path,
 								       img);
 				texture_obj[path] = texture;
