@@ -541,12 +541,18 @@ class BobMap extends BobRenderable {
 			south = [];
 
 		// cleanse the south
-		south = south.filter(south_tile => {
+		south = south.filter((south_tile, index) => {
 
 			// hidden block or decorative tile
 			if (south_tile.tile === undefined
 			    || !south_tile.true_tile)
 				return false;
+			// what can be seen, can never be unseen.
+			if (index
+			    && south[index - 1].map_z === south_tile.map_z)
+				return false;
+
+
 			const { quad_type } = south_tile;
 			const z_action
 				= MoreTileInfos.z_action_on_tile(quad_type);
