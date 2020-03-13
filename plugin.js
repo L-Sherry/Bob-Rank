@@ -638,6 +638,19 @@ class BobMap extends BobRenderable {
 				current_block = my_tile;
 				return;
 			}
+			my_tile.orig_map_z = my_tile.map_z;
+
+			// this sometimes happen with object layers... and
+			// sometimes other things too.  This should prevent
+			// double-raising.
+			if (last_tile !== null
+			    && last_tile.orig_map_z === my_tile.orig_map_z
+			    && last_tile.quad_type === my_tile.quad_type) {
+				// reuse last, don't even attempt to guess.
+				my_tile.map_z = last_tile.map_z;
+				my_tile.map_y = last_tile.map_y;
+				return;
+			}
 
 			// first hint: hidden blocks
 			const block_guess = guess_from_block();
