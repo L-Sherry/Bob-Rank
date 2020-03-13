@@ -285,9 +285,9 @@
 			"64,176+32,16": "WALL_NORTH"
 		},
 		"spikes up": {
-			"32,192+32,32": "WALL_NORTH",
-			 "0,208": "WALL_NE",
-			"16,208": "WALL_NW",
+			"32,192+32,32": "WALL_NORTH_END",
+			 "0,208": "WALL_NE_END",
+			"16,208": "WALL_NW_END",
 			 "0,224": "WALL_NE",
 			"16,224": "WALL_NW"
 		},

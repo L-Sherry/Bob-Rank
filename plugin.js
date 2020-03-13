@@ -133,10 +133,12 @@ class BobGeo {
 			break;
 
 		case "WALL_NW":
+		case "WALL_NW_END":
 			bottomleft = [x, y, z];
 			bottomright = [x + size_x, y - size_y, z - size_y];
 			break;
 		case "WALL_NE":
+		case "WALL_NE_END":
 			bottomleft = [x, y - size_y, z - size_y];
 			bottomright = [x + size_x, y, z];
 			break;
@@ -167,6 +169,7 @@ class BobGeo {
 			quad_type = quad_type.slice("IGNORE_".length);
 		switch (quad_type) {
 		case "WALL_NORTH":
+		case "WALL_NORTH_END":
 		case "BOTTOM_WALL_NORTH":
 			return BobGeo.make_quad_simple(x, y, z,
 						       BobGeo._quad_vertical,
@@ -217,6 +220,8 @@ class BobGeo {
 		case "WALL_SOUTH":
 		case "WALL_SW":
 		case "WALL_SE":
+		case "WALL_NE_END":
+		case "WALL_NW_END":
 			return BobGeo.make_vertlike_quad(x, y, z, quad_type,
 							 size_x, size_y);
 		default:
@@ -2077,6 +2082,10 @@ class MoreTileInfos {
 		case "BORDER_NW_FLAT":
 		case "SLOPE_WEST_BORDER_NE": // these are borders, above all
 		case "SLOPE_EAST_BORDER_NW":
+		// those are "top of walls", not followed by grounds.
+		case "WALL_NORTH_END":
+		case "WALL_NE_END":
+		case "WALL_NW_END":
 			return "fall_north"; // fall and go north
 		default:
 			throw "unknown tileinfo" + tileinfo;
