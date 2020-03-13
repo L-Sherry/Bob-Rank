@@ -2229,7 +2229,11 @@ class BobRank {
 								  screen_y);
 
 		result.x = ret.x;
-		result.y = ret.y;
+		// Of course, if this was this simple....
+		// The game compare those coordinates with ... { x, y - z }
+		// so i need to do the same thing.
+		result.y = ret.y - this.renderer.camera_center.z;
+
 		// note: one of the caller is PlayerCrossHairController
 		// and passes coll.pos as parameter... but it does not
 		// use it for its sprite :(
