@@ -2268,6 +2268,21 @@ class BobRank {
 		return result;
 	}
 
+	prepare_draw(parent) {
+		if (!this._enabled)
+			return parent();
+		// this huge hack here is an example of things that you
+		// shouldn't do.
+		const orig_zoom = ig.system.zoom;
+		// with that zoom value, prepareDraw() should think all sprites
+		// are visible. Say bye bye to your FPS, but it turns out
+		// a 3d view can see a lot more than a 2d view.
+		ig.system.zoom = 0.000001;
+		const ret = parent();
+		ig.system.zoom = orig_zoom;
+		return ret; // actually unused, but who knows.
+	}
+
 	bind_to_game() {
 		const me = this;
 		const modulize = (dummyname, deps, func) =>
@@ -2279,6 +2294,13 @@ class BobRank {
 						= this.parent.bind(this, force,
 								   dont_clear);
 					return me.draw_layerz(parent);
+				},
+				prepareDraw: function(entities, force) {
+					const parent
+						= this.parent.bind(this,
+								   entities,
+								   force);
+					return me.prepare_draw(parent);
 				},
 				drawPostLayerSprites: function(force) {
 					const parent
