@@ -314,7 +314,7 @@ class BobRender {
 		// from the horizontal fov, which is probably
 		// vfov = 2 * atan(ratio * tan(hfov/2))
 		const fov = Math.PI * 0.4;
-		this.proj_matrix = throw_at_wall(fov, ratio, -10, -700);
+		this.proj_matrix = throw_at_wall(fov, ratio, -10, -1000);
 
 		this.context = webglplz(canvas);
 
