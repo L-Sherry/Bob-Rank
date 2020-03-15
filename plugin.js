@@ -2113,7 +2113,8 @@ class MoreTileInfos {
 }
 
 class BobGame {
-	constructor(on_srank_cb, on_no_srank_cb, on_resize_cb) {
+	constructor(on_srank_cb, on_no_srank_cb, on_resize_cb, on_enemy_killed,
+		    on_player_killed) {
 		this.renderer = new BobRender();
 		this.moretileinfo = null;
 		this.map = null;
@@ -2125,6 +2126,8 @@ class BobGame {
 		this.on_srank_cb = on_srank_cb;
 		this.on_no_srank_cb = on_no_srank_cb;
 		this.on_resize_cb = on_resize_cb;
+		this.on_enemy_killed = on_enemy_killed;
+		this.on_player_killed = on_player_killed;
 	}
 
 	enable() {
@@ -2347,6 +2350,15 @@ class BobGame {
 				}
 			});
 		});
+		modulize("bobcomment", ["game.feature.combat.combat"], () => {
+			sc.Combat.inject({
+				onCombatantDeathHit: function(murderer,
+							      murdered) {
+					this.parent(murderer, murdered);
+					me.on_entity_murdered(murdered);
+				}
+			});
+		});
 	}
 
 	modelChanged(observed, whatchanged /*, value*/) {
@@ -2361,6 +2373,13 @@ class BobGame {
 		else
 			// oh noes, no more S-Rank.
 			this.on_no_srank_cb();
+	}
+
+	on_entity_murdered(entity) {
+		if (entity.party === sc.COMBATANT_PARTY.ENEMY)
+			this.on_enemy_killed();
+		else if (entity.isPlayer)
+			this.on_player_killed();
 	}
 
 	draw_gui() {
@@ -2409,13 +2428,15 @@ class BobGame {
 	}
 }
 
-import { BobEvotar } from "./evotar.js";
+import { BobEvotar, BobComments } from "./evotar.js";
 
 class BobRank {
 	constructor(my_dir) {
 		this.bobgame = new BobGame(this.start.bind(this),
-					   this.stop.bind(this),
-					   this.resize.bind(this));
+					   this.stop.bind(this, false),
+					   this.resize.bind(this),
+					   this.enemy_killed.bind(this),
+					   this.stop.bind(this, true));
 		this.bobgame.bind_to_game();
 
 		this.my_dir = my_dir;
@@ -2488,6 +2509,10 @@ class BobRank {
 		list.src = this.my_dir + "evotar/list.png";
 		pane.appendChild(list);
 
+		this.comments = new BobComments();
+		const chatbox = this.comments.create();
+		pane.appendChild(chatbox);
+
 		div.appendChild(pane);
 
 		document.getElementById("game").appendChild(div);
@@ -2531,6 +2556,8 @@ class BobRank {
 
 		this.game_div.appendChild(video);
 		this.evotar.run_the_evotar();
+		this.comments.reset_enable();
+		this.comments.start_hi(35000, 4000);
 
 		this.original_canvas.opacity = "0%";
 		this.whole_div.style.display = "block";
@@ -2555,6 +2582,7 @@ class BobRank {
 			return;
 		this.step = "running";
 		this.canvas3d.style.display = "";
+		this.comments.start_cool(5000, 1000);
 		ig.soundManager.popPaused();
 
 		ig.slowMotion.clearNamed("ZOMGBOBRANK", 3);
@@ -2579,15 +2607,17 @@ class BobRank {
 			= steps.map(step => new ig.EVENT_STEP[step.type](step));
 	}
 
-	async stop() {
+	async stop(player_dies) {
 		if (this.step === "" || this.step === "destroying")
 			return;
 
 		this.step = "destroying";
 		this.stop_events[0].start();
 		this.evotar.freeze();
+		this.comments.add_ohno_msg();
+		this.comments.start_ohno(4000, 1000);
 
-		await this.constructor.sleep(2000);
+		await this.constructor.sleep(player_dies ? 3200 : 2000);
 		this.stop_events[1].start();
 		await this.constructor.sleep(500);
 		this.step = "";
@@ -2614,8 +2644,18 @@ class BobRank {
 		ar_msg.start();
 
 		this.bobgame.disable();
+		this.comments.disable();
 		this.step="";
 	}
+	async enemy_killed() {
+		if (this.step === "")
+			return;
+
+		await this.constructor.sleep(2500 + Math.random() * 1500);
+
+		this.comments.add_cool_msg();
+	}
+
 	async do_fake_load_animation() {
 		const context = this.canvas2dgui.getContext("2d");
 		const BAR_WIDTH = 370;
