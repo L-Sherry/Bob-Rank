@@ -19,6 +19,35 @@ class BobEvotar {
 		video.src = this.my_dir + "/evotar/evotar.webm";
 		video.load();
 
+		Object.assign(video.style, {
+			maxWidth: "100%", maxHeight: "100%", width: "100%"
+		});
+
+		const overlay = document.createElement("div");
+		this.video_overlay = overlay;
+		const text = document.createElement("p");
+		Object.assign(overlay.style, {
+			backgroundColor:"#86f", opacity: "0%", zIndex: "1",
+			position: "absolute", top: "0", left: "0",
+			right: "0", bottom:"0"
+		});
+		text.textContent = "Unexpected Error";
+		// text.textContent = "Unerwarteter Felher"
+		Object.assign(text.style, {
+			fontSize: "2vh", fontFamily: "serif",
+			backgroundColor:"black", border:"1px red solid",
+			textAlign: "center",
+			width: "8em", height: "3ex", position: "absolute",
+			left: "calc(50% - 4em)", top: "calc(50% - 1.5ex)"
+		});
+
+
+		const div = document.createElement("div");
+		this.container = div;
+		div.appendChild(video);
+		div.appendChild(overlay);
+		overlay.appendChild(text);
+
 		const audio = document.createElement("audio");
 		audio.autoplay = false;
 		audio.controls = false;
@@ -29,9 +58,10 @@ class BobEvotar {
 
 		this.audio1 = audio;
 
-		return video;
+		return div;
 	}
 	async prepare_video() {
+		this.video_overlay.style.opacity = "0";
 		return new Promise(resolve => (
 			this.video.addEventListener("canplay", resolve)));
 	}
@@ -48,8 +78,8 @@ class BobEvotar {
 		this.audio1.play();
 	}
 	freeze() {
-		// maybe find a way to turn this white ?
 		this.video.pause();
+		this.video_overlay.style.opacity = "0.8";
 	}
 	destroy_video() {
 		this.video.pause();
@@ -57,11 +87,13 @@ class BobEvotar {
 		if (this.cancel_timer !== null)
 			this.cancel_timer();
 
-		const parent = this.video.parentNode;
+		const parent = this.container.parentNode;
 		if (parent)
-			parent.removeChild(this.video);
+			parent.removeChild(this.container);
+		this.container = null;
 		this.video = null;
-		this.audio = null;
+		this.video_overlay = null;
+		this.audio1 = null;
 		this.can_transition = null;
 	}
 	remove_timer() {

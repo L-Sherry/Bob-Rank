@@ -2493,6 +2493,10 @@ class BobRank {
 		document.getElementById("game").appendChild(div);
 	}
 
+	static async sleep(millisecs) {
+		return new Promise(resolve => setTimeout(resolve, millisecs));
+	}
+
 	async initial_setup() {
 		await this.bobgame.setup(this.canvas3d, this.canvas2dgui);
 	}
@@ -2505,23 +2509,26 @@ class BobRank {
 		// start the fluff
 		const video = this.evotar.create();
 		Object.assign(video.style, {
-			position: "absolute",
-			width: "100%",
-			top:"0"
+			maxWidth: "100%", maxHeight: "100%",
+			position: "relative"
 		});
 		this.create_events();
 
-		await new Promise(resolve => setTimeout(resolve, 1500));
+		await this.constructor.sleep(1500);
 		if (this.step !== "wait")
 			return;
-		this.step = "fadeout";
-		ig.slowMotion.add(0.001, 2, "ZOMGBOBRANK");
+		ig.slowMotion.add(0, 2, "ZOMGBOBRANK");
 		ig.bgm.pause(ig.BGM_SWITCH_MODE.VERY_SLOW);
 
-
-		await new Promise(resolve => setTimeout(resolve, 5000));
+		this.step = "fadeout";
+		await this.constructor.sleep(5000);
 		if (this.step !== "fadeout")
 			return;
+		// this is unreliable
+		ig.soundManager.pushPaused();
+		// FIXME: player can still interact with everything
+
+
 		this.game_div.appendChild(video);
 		this.evotar.run_the_evotar();
 
@@ -2548,6 +2555,7 @@ class BobRank {
 			return;
 		this.step = "running";
 		this.canvas3d.style.display = "";
+		ig.soundManager.popPaused();
 
 		ig.slowMotion.clearNamed("ZOMGBOBRANK", 3);
 		ig.bgm.resume(ig.BGM_SWITCH_MODE.MEDIUM);
@@ -2572,14 +2580,16 @@ class BobRank {
 	}
 
 	async stop() {
-		if (this.step === "")
+		if (this.step === "" || this.step === "destroying")
 			return;
 
 		this.step = "destroying";
-		this.stop_events.map(step => step.start());
+		this.stop_events[0].start();
 		this.evotar.freeze();
 
-		await new Promise(resolve => setTimeout(resolve, 500));
+		await this.constructor.sleep(2000);
+		this.stop_events[1].start();
+		await this.constructor.sleep(500);
 		this.step = "";
 
 		// must undo everything, at whatever step we are.
@@ -2588,6 +2598,7 @@ class BobRank {
 		this.original_canvas.opacity = "100%";
 		this.whole_div.style.display = "none";
 		this.evotar.destroy_video();
+		ig.soundManager.popPaused();
 		ig.slowMotion.clearNamed("ZOMGBOBRANK");
 		ig.bgm.resume(ig.BGM_SWITCH_MODE.FAST);
 		// recalculate the original screenWidth
@@ -2619,7 +2630,7 @@ class BobRank {
 		context.fillStyle = "#ddd";
 		context.fillRect(BAR_X - 3, BAR_Y - 3,
 				 BAR_WIDTH + 6, BAR_HEIGHT + 6);
-		// ...die neuen...
+		// ...den neuen...
 		context.fillStyle = "black";
 		context.fillRect(BAR_X - 2, BAR_Y - 2,
 				 BAR_WIDTH + 4, BAR_HEIGHT + 4);
@@ -2642,7 +2653,7 @@ class BobRank {
 			bar = Math.max(Math.min(bar, BAR_WIDTH), 0);
 			context.fillRect(BAR_X, BAR_Y, bar, BAR_HEIGHT);
 
-			await new Promise(resolve => setTimeout(resolve, wait));
+			await this.constructor.sleep(wait);
 			current_time_like = next_time;
 		}
 	}
