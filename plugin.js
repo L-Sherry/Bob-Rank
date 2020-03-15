@@ -2455,7 +2455,7 @@ class BobRank {
 		this.game_div = game;
 		Object.assign(game.style, {
 			position: "absolute", top: "0", left: "0",
-			width: "82%", height: "82%"
+			width: "83%", height: "83%"
 		});
 		div.appendChild(game);
 
@@ -2531,8 +2531,8 @@ class BobRank {
 		// the original canvas behind all this is still at its true
 		// size, but we need to reduce its screen width and height
 		// so that it calculates mouse coordinates correctly.
-		ig.system.screenWidth = ig.system.screenWidth * 0.82;
-		ig.system.screenHeight = ig.system.screenHeight * 0.82;
+		ig.system.screenWidth = ig.system.screenWidth * 0.83;
+		ig.system.screenHeight = ig.system.screenHeight * 0.83;
 
 
 		this.step = "start";
@@ -2654,8 +2654,8 @@ class BobRank {
 		this.whole_div.style.width = width + "px";
 		this.whole_div.style.height = height + "px";
 
-		width = width * 0.82;
-		height = height * 0.82;
+		width = width * 0.83;
+		height = height * 0.83;
 		this.bobgame.resize(width, height);
 	}
 }
