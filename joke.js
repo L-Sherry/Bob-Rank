@@ -238,16 +238,33 @@ class BobComments {
 	}
 	add_hi_msg() {
 		this.add_random_msg([
-			"Hi!", "hi", "hello", "heloo",
-			"hello there", "it's time", "late as usual",
+			"Hi!", "hi", "hello", "heloo", "hey guys", "hello hon",
+			"hello in there", "hi guyz", "hey, hello", "yes sampai",
+			"sup", "yay it starts", "Greetings", "let's see",
+			"yeah !", "woohoo !", "i can't wait for henne's jokes",
+			"What will it be this time ?", "it is time", "dun",
+			"Let me guess, working on a new map ?", "hello RFGchan",
+			"hello there", "it's time", "late as usual", "Nanni ?",
 			"wait, already ?", "long time no see",
-			"woohoo !", "DLC when ?", "switch when ?"
+			"oh wait, i'm late",
+			"it's been a long time since i was last here, and " +
+				"this is much better than last time.",
+			"Is the DLC release date finally announced ?",
+			"DLC when ?", "any news about the switch release ?",
+			"let's hope the wifi works this time",
 		]);
 	}
 	add_cool_msg() {
 		this.add_random_msg([
 			"woah", "wow", "cool", "awesome", "nice", "noice",
-			"rekt", "oooh", "that's impressive", "WANT",
+			"rekt", "oooh", "that's impressive", "WANT", "NOICE",
+			"Looks cool.", "Looks great.", "0v0", "OwO", "UwU",
+			"That's awesome guys.",
+			"OK, you got us all hyped, ETA ?",
+			"this will be awesome",
+			"so this is the new project ?",
+			"What game is this ?", "What is this stream about ?",
+			"What graphic card will it require ?",
 			// leaSmug
 		]);
 	}
@@ -259,6 +276,9 @@ class BobComments {
 			"omg",
 			"lag",
 			"omg wtf",
+			"what's going on",
+			"uuuuh",
+			"That's a bug, right ?",
 			"stream is broken for me",
 			"wait",
 			"Is that me or the stream is frozen ?",
