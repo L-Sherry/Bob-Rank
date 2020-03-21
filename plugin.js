@@ -2428,7 +2428,7 @@ class BobGame {
 	}
 }
 
-import { BobEvotar, BobComments } from "./evotar.js";
+import { BobEvotar, BobComments } from "./joke.js";
 
 class BobRank {
 	constructor(my_dir) {
@@ -2460,7 +2460,7 @@ class BobRank {
 		// this contains everything
 		const div = document.createElement("div");
 		const backgroundurl
-			= encodeURI(this.my_dir+"evotar/background.png");
+			= encodeURI(this.my_dir+"joke/background.png");
 		Object.assign(div.style, {
 			position: "absolute",
 			left: "0", right:"0", top:"0", bottom:"0",
@@ -2506,7 +2506,7 @@ class BobRank {
 			marginTop: "25px",
 			display:"block"
 		});
-		list.src = this.my_dir + "evotar/list.png";
+		list.src = this.my_dir + "joke/list.png";
 		pane.appendChild(list);
 
 		this.comments = new BobComments();

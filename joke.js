@@ -16,7 +16,7 @@ class BobEvotar {
 		video.controls = false;
 		video.loop = true;
 		video.preload = "metadata";
-		video.src = this.my_dir + "/evotar/evotar.webm";
+		video.src = this.my_dir + "/joke/evotar.webm";
 		video.load();
 
 		Object.assign(video.style, {
@@ -53,7 +53,7 @@ class BobEvotar {
 		audio.controls = false;
 		audio.loop = false;
 		audio.preload = "metadata";
-		audio.src = this.my_dir + "/evotar/loader_intro.opus";
+		audio.src = this.my_dir + "/joke/loader_intro.opus";
 		audio.load();
 
 		this.audio1 = audio;
