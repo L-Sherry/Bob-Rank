@@ -15,13 +15,16 @@
 		"brickwalls (are they entities or map stuff ?)": {
 		},
 
+		"upper tiles of doom (why they exist ? always have wrong z)": {
+			"0,64":  "DELETE",
+			"16,64": "DELETE",
+			"32,64": "DELETE",
+			"48,64": "DELETE",
+			"64,64": "DELETE",
+			"80,64": "DELETE"
+		},
+
 		"TODO separate in sets": {
-		"0,64": "IGNORE_WALL_NORTH",
-		"16,64": "IGNORE_WALL_NORTH",
-		"32,64": "IGNORE_WALL_NORTH",
-		"48,64": "IGNORE_WALL_NORTH",
-		"64,64": "IGNORE_WALL_NORTH",
-		"80,64": "IGNORE_WALL_NORTH",
 
 
 		"0,80": "WALL_NORTH",
@@ -271,22 +274,22 @@
 
 		"spikes down": {
 			"0,176": "WALL_NE",
-			"0,192": "BOTTOM_WALL_NE",
+			"0,192": "WALL_NE",
 
 			"16,176": "WALL_NW",
-			"16,192": "BOTTOM_WALL_NW",
+			"16,192": "WALL_NW",
 
-			"32,176": "BOTTOM_WALL_NE",
-			"48,192": "BOTTOM_WALL_NW",
+			"32,176": "WALL_NE",
+			"48,176": "WALL_NW",
 
-			"64,176+32,16": "BOTTOM_WALL_NORTH"
+			"64,176+32,16": "WALL_NORTH"
 		},
 		"spikes up": {
-			"32,192+32,32": "WALL_NORTH",
-			 "0,208": "WALL_NE",
-			"16,208": "WALL_NW",
-			 "0,224": "BOTTOM_WALL_NE",
-			"16,224": "BOTTOM_WALL_NW"
+			"32,192+32,32": "WALL_NORTH_END",
+			 "0,208": "WALL_NE_END",
+			"16,208": "WALL_NW_END",
+			 "0,224": "WALL_NE",
+			"16,224": "WALL_NW"
 		},
 		"waterwall": {
 			"192,176": "BOTTOM_WALL_NE",
@@ -371,17 +374,17 @@
 			"0,64+96,96": "TYPE1 DEFAULT"
 		},
 		"wallz": {
-			"0,64": "BOTTOM_WALL_NE",
-			"80,64+32,16": "BOTTOM_WALL_NORTH",
-			"176,64": "BOTTOM_WALL_NW",
+			"0,64": "BOTTOM_WALL_NE DEFAULT",
+			"80,64+32,16": "BOTTOM_WALL_NORTH DEFAULT",
+			"176,64": "BOTTOM_WALL_NW DEFAULT",
 
 			"0,144": "BOTTOM_WALL_NE",
 
 			"80,144": "BOTTOM_WALL_NW",
 
-			"0,160+32,16": "WALL_NE",
+			"0,160+32,16": "WALL_NE DEFAULT",
 			"32,160+32,16": "WALL_NORTH DEFAULT",
-			"64,160+32,16": "WALL_NW"
+			"64,160+32,16": "WALL_NW DEFAULT"
 		},
 		"sandy": {
 			"96,64+96,80": "TYPE1 DEFAULT",
@@ -428,12 +431,12 @@
 			"480,192+32,16": "BOTTOM_WALL_NORTH"
 		},
 		"platformz": {
-			"0,256+16,48": "WALL_NE",
-			"16,256+16,48": "WALL_NORTH",
-			"32,256+16,48": "WALL_NW",
-			"0,304": "BOTTOM_WALL_NE",
-			"16,304": "BOTTOM_WALL_NORTH",
-			"32,304": "BOTTOM_WALL_NW",
+			"0,256+16,48": "WALL_NE DEFAULT",
+			"16,256+16,48": "WALL_NORTH DEFAULT",
+			"32,256+16,48": "WALL_NW DEFAULT",
+			"0,304": "BOTTOM_WALL_NE DEFAULT",
+			"16,304": "BOTTOM_WALL_NORTH DEFAULT",
+			"32,304": "BOTTOM_WALL_NW DEFAULT",
 			"48,304+80,16": "WALL_NORTH",
 			"0,320+80,80": "TYPE2 DEFAULT",
 			"80,320+32,16": "BORDER_SOUTH",
@@ -833,26 +836,48 @@
 		},
 		"rocky2": {
 			"192,64+96,80": "TYPE1 DEFAULT",
-			"192,144+32,16": "BORDER_SE",
-			"224,144+32,16": "WALL_NORTH",
-			"256,144+32,16": "BORDER_SW"
+			"192,144+32,16": "BORDER_NW",
+			"192,160+32,16": "BORDER_WEST",
+			"224,144+32,16": "BORDER_NORTH",
+			"256,144+32,16": "BORDER_NE",
+			"256,160+32,16": "BORDER_EAST"
 		},
+		"grassy": {
+			"288,64+96,80": "TYPE1 DEFAULT",
+			"288,144+32,16": "BORDER_NW",
+			"288,160+32,16": "BORDER_WEST",
+			"320,144+32,16": "BORDER_NORTH",
+			"352,144+32,16": "BORDER_NE",
+			"352,160+32,16": "BORDER_EAST"
+		},
+
 
 		"level changes": {
 			"192,208+112,32": "GROUND"
 		},
 
-		"waterwalls": {
+		"waterwalls and borders": {
 			"384,112": "BOTTOM_WALL_NE",
 			"400,128": "BOTTOM_WALL_NE",
 			"416,128+32,16": "BOTTOM_WALL_NORTH",
 			"448,128": "BOTTOM_WALL_NW",
 			"464,112": "BOTTOM_WALL_NW",
 
-			"480,96+32,32": "BOTTOM_WALL_NE",
-			"480,128+32,16": "BOTTOM_WALL_NORTH",
-			"480,144+32,32": "BOTTOM_WALL_NW",
-			"480,176+32,16": "BOTTOM_WALL_NORTH"
+			"480,96+32,32": "BOTTOM_WALL_NE DEFAULT",
+			"480,128+32,16": "BOTTOM_WALL_NORTH DEFAULT",
+			"480,144+32,32": "BOTTOM_WALL_NW DEFAULT",
+			"480,176+32,16": "BOTTOM_WALL_NORTH",
+
+
+			"384,144+32,16": "BORDER_NW",
+			"384,160+32,16": "BORDER_WEST",
+			"416,144+32,16": "BORDER_NORTH",
+			"448,144+32,16": "BORDER_NE",
+			"448,160+32,16": "BORDER_EAST"
+		},
+
+		"blackness (like your mind, mister sidwell)": {
+			"96,64": "GROUND"
 		},
 
 		"waterfalls": {

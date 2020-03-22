@@ -314,7 +314,7 @@ class BobRender {
 		// from the horizontal fov, which is probably
 		// vfov = 2 * atan(ratio * tan(hfov/2))
 		const fov = Math.PI * 0.4;
-		this.proj_matrix = throw_at_wall(fov, ratio, -10, -700);
+		this.proj_matrix = throw_at_wall(fov, ratio, -10, -1000);
 
 		this.context = webglplz(canvas);
 
@@ -441,12 +441,11 @@ class BobRender {
 		// move center of screen at (0,0,0)
 		const trans = window.Vec3.sub(this.debugshift, { x, y, z}, {});
 		translate_matrix_before(view_matrix, trans.x, trans.y, trans.z);
-		// take the camera back by 300
-		// FIXME: the hit2.png effects are currently at z = 142
+		// take the camera back by 375
 		translate_matrix(view_matrix,
 				 0,
 				 0,
-				 -275 / zoom);
+				 -375 / zoom);
 
 		this.matrix_all = mulmat(this.proj_matrix, view_matrix);
 	}

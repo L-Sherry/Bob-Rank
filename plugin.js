@@ -15,6 +15,13 @@ const forEachBackward = (array, callback, from) => {
 		callback(array[idx], idx, array);
 };
 
+function* reversed(array, end = null) {
+	if (end === null)
+		end = array.length;
+	while (end --> 0)
+		yield array[end];
+}
+
 const sortWithKey = (array, key) => array.sort((a, b) => key(a) - key(b));
 
 
@@ -126,10 +133,12 @@ class BobGeo {
 			break;
 
 		case "WALL_NW":
+		case "WALL_NW_END":
 			bottomleft = [x, y, z];
 			bottomright = [x + size_x, y - size_y, z - size_y];
 			break;
 		case "WALL_NE":
+		case "WALL_NE_END":
 			bottomleft = [x, y - size_y, z - size_y];
 			bottomright = [x + size_x, y, z];
 			break;
@@ -160,6 +169,7 @@ class BobGeo {
 			quad_type = quad_type.slice("IGNORE_".length);
 		switch (quad_type) {
 		case "WALL_NORTH":
+		case "WALL_NORTH_END":
 		case "BOTTOM_WALL_NORTH":
 			return BobGeo.make_quad_simple(x, y, z,
 						       BobGeo._quad_vertical,
@@ -210,6 +220,8 @@ class BobGeo {
 		case "WALL_SOUTH":
 		case "WALL_SW":
 		case "WALL_SE":
+		case "WALL_NE_END":
+		case "WALL_NW_END":
 			return BobGeo.make_vertlike_quad(x, y, z, quad_type,
 							 size_x, size_y);
 		default:
@@ -413,12 +425,12 @@ class BobMap extends BobRenderable {
 
 	static hidden_block_info(block) {
 		const base_x = Math.floor(block.coll.pos.x / 16);
-		const high_x = base_x + Math.ceil(block.coll.size.x / 16);
+		const high_x = base_x + Math.round(block.coll.size.x / 16);
 		const base_y = Math.floor(block.coll.pos.y / 16);
-		const high_y = base_y + Math.ceil(block.coll.size.y / 16);
+		const high_y = base_y + Math.round(block.coll.size.y / 16);
 
 		const base_z = Math.floor(block.coll.pos.z / 16);
-		const top_z = base_z + Math.ceil(block.coll.size.z / 16);
+		const top_z = base_z + Math.round(block.coll.size.z / 16);
 
 		// these bounds are large, they must be restricted depending
 		// on z.
@@ -503,27 +515,44 @@ class BobMap extends BobRenderable {
 		return line[map_x] || null;
 	}
 
+	// shift a tile's z coordinate while keeping the same 2d screen
+	// coordinate.
+	static shift_to_z(tile, wanted_map_z) {
+		tile.map_y += wanted_map_z - tile.map_z;
+		tile.map_z = wanted_map_z;
+	}
+
+	// the actual dreadful height reconstruction algorithm.
+	// tiles contains a list of tiles at the current position on the screen
+	// south contains a list of tiles at the screen position just below us
+	// left contains a list of tiles at the screen position just left of us
+	//
+	// this adjusts the tiles array in-place, as well as changing the map_z
+	// of tiles in it.
 	handle_tiles_build_map(tiles, left, south) {
 		if (tiles.length === 0)
 			return;
 
-		const shift_to_z = (tile, wanted_map_z) => {
-			const shift = wanted_map_z - tile.map_z;
-			tile.map_y += shift;
-			tile.map_z = wanted_map_z;
-		};
+		const shift_to_z
+			= this.constructor.shift_to_z.bind(this.constructor);
 		if (south)
 			south = Array.from(south);
 		else
 			south = [];
 
 		// cleanse the south
-		south = south.filter(south_tile => {
+		south = south.filter((south_tile, index) => {
 
 			// hidden block or decorative tile
 			if (south_tile.tile === undefined
 			    || !south_tile.true_tile)
 				return false;
+			// what can be seen, can never be unseen.
+			if (index
+			    && south[index - 1].map_z === south_tile.map_z)
+				return false;
+
+
 			const { quad_type } = south_tile;
 			const z_action
 				= MoreTileInfos.z_action_on_tile(quad_type);
@@ -545,9 +574,11 @@ class BobMap extends BobRenderable {
 
 		const guess_from_block = () => {
 			if (current_block !== null) {
-				return { z_action: "keepz_north",
-					 from_z: current_block.map_z,
-					 certitude: 20 };
+				const ret = { z_action: "keepz_north",
+					      from_z: current_block.map_z,
+					      certitude: 20 };
+				current_block = null;
+				return ret;
 			}
 			return { certitude: 0 };
 		};
@@ -563,9 +594,9 @@ class BobMap extends BobRenderable {
 					if (map_z < my_tile.map_z)
 						continue;
 					// it's a ground.
-					if (map_z === my_tile.map_z)
+					/*if (map_z === my_tile.map_z)
 						certain = 10;
-					else
+					else*/
 						certain = 5;
 					break;
 				case "rise": // rise on top of south tile
@@ -592,6 +623,8 @@ class BobMap extends BobRenderable {
 				} else if (certain < 0)
 					return { certitude: -1 };
 			}
+			if (my_tile.quad_type.startsWith("IGNORE_"))
+				return ret;
 
 			if (ret.index === undefined)
 				south.length = 0;
@@ -609,6 +642,19 @@ class BobMap extends BobRenderable {
 		forEachBackward(tiles, my_tile => {
 			if (my_tile.block) {
 				current_block = my_tile;
+				return;
+			}
+			my_tile.orig_map_z = my_tile.map_z;
+
+			// this sometimes happen with object layers... and
+			// sometimes other things too.  This should prevent
+			// double-raising.
+			if (last_tile !== null
+			    && last_tile.orig_map_z === my_tile.orig_map_z
+			    && last_tile.quad_type === my_tile.quad_type) {
+				// reuse last, don't even attempt to guess.
+				my_tile.map_z = last_tile.map_z;
+				my_tile.map_y = last_tile.map_y;
 				return;
 			}
 
@@ -672,33 +718,78 @@ class BobMap extends BobRenderable {
 		for (let levelno = 0; levelno < maxlevels; ++levelno) {
 			const level = levels[levelno];
 
-			const maps = [];
+			const next_level = levels[levelno + 1];
+
+			const z_min = level.height;
+			const z_max = next_level ? next_level.height : 9999999;
+
+			const map_infos = [];
 			for (const map of level.maps) {
 				const distance = Number(map.distance);
 				if (distance !== 1)
 					continue;
 				if (!map.tiles.data)
 					continue;
-				maps.push(map);
+				const mapinfo = this.get_mapinfo(map, z_min,
+								 z_max);
+				mapinfo.map = map;
+				map_infos.push(mapinfo);
 			}
 
-			if (!maps.length)
+			if (!map_infos.length)
 				continue;
-
-			const next_level = levels[levelno + 1];
-
-			const z_min = level.height;
-			const z_max = next_level ? next_level.height : 9999999;
-
-			const mapinfo = this.get_mapinfo(maps[0], z_min, z_max);
-			mapinfo.maps = maps;
-			ret.push(mapinfo);
-			// TODO: detect object maps here and store them
+			ret.push(map_infos);
 		}
 		return ret;
 	}
 
-	// screen_x and y are in "tiles" unit
+	// may return null
+	static find_main_tile_in_maps(map_infos, screen_x, screen_y) {
+		const ret = {
+			map_x: screen_x, map_y: null, map_z: null,
+			quad_type: null, true_tile: false, map_info: null
+		};
+
+		// "in theory, there shouldn't be more than one true tile
+		// per level", i once said. Screw that, that's false. some
+		// bottom wall are actually transparent, so there is both a
+		// ground and the begining of a wall.
+		//
+		// How to resolve it ? well, iterate backward and pick the wall.
+		for (const map_info of reversed(map_infos)) {
+			const tile = map_info.map.data[screen_y][screen_x] - 1;
+			if (tile === -1)
+				continue;
+			const quad_type = map_info.tileinfo.get_type(tile);
+			if (quad_type === "DELETE")
+				continue;
+			if (quad_type.startsWith("IGNORE_")) {
+				if (ret.quad_type)
+					continue;
+				// this tile is useless for height
+				// reconstruction, but it still needs to be
+				// drawn, so it needs a position.
+				ret.tile = tile;
+				ret.quad_type = quad_type;
+				ret.map_z = map_info.min_map_z;
+				ret.map_y = screen_y + ret.map_z;
+				ret.map_info = map_info;
+			} else {
+				ret.tile = tile;
+				ret.quad_type = quad_type;
+				ret.true_tile = true;
+				ret.map_z = map_info.min_map_z;
+				ret.map_y = screen_y + ret.map_z;
+				ret.map_info = map_info;
+				return ret;
+			}
+		}
+		if (!ret.quad_type)
+			return null;
+		return ret;
+	}
+
+	// screen_x and y are in "tiles" unit and are positions on the screen
 	// returns an array sorted by ascending "z-index".
 	// entries are:
 	// {map_x, map_y, map_z,
@@ -722,59 +813,24 @@ class BobMap extends BobRenderable {
 		}
 
 		const tiles = [];
-		for (const map_info of base_maps) {
-			const { min_map_z, tileinfo } = map_info;
-			const map_y = screen_y + min_map_z;
+		const find_main_tile = this.constructor.find_main_tile_in_maps;
+		for (const map_infos of base_maps) {
 
-			let tile = map_info.maps[0].data[screen_y][screen_x];
-			let true_tile = true;
-			let quad_type = "GROUND";
-			if (tile === 0) {
-				true_tile = false;
-				for (let map of map_info.maps) {
-					tile = map.data[screen_y][screen_x];
-					if (tile !== 0)
-						break;
-				}
-			} else
-				quad_type = tileinfo.get_type(tile - 1);
-
-			if (tile === 0)
-				continue;
-
-			const tile_pos = {
-				map_x: screen_x, map_y, map_z: min_map_z,
-				tile: tile - 1,
-				true_tile,
-				quad_type,
-				map_info
-			};
-			tiles.push(tile_pos);
+			const tile_pos = find_main_tile(map_infos, screen_x,
+							screen_y);
+			if (tile_pos)
+				tiles.push(tile_pos);
 		}
 
 		for (const objectlayer of layerviews) {
-			// fun fact: ig.game.getObjectMaps is hardcoded
-			// to return an array with a single map, which
-			// is what ends up here.
-			const { min_scr_y, max_scr_y, map_info } = objectlayer;
+			const { min_scr_y, max_scr_y, map_infos } = objectlayer;
 			if (!(min_scr_y <= screen_y && screen_y < max_scr_y))
 				continue;
-			const map = objectlayer.entity.maps[0];
-			const map_z = map_info.min_map_z;
-			const map_y = screen_y + map_z;
-			const tile = map.data[screen_y][screen_x] - 1;
-			if (tile === -1)
-				continue;
-			const quad_type = map_info.tileinfo.get_type(tile);
 
-			const tile_pos = {
-				map_x: screen_x, map_y, map_z,
-				tile,
-				true_tile: tile !== "GROUND",
-				quad_type,
-				map_info
-			};
-			tiles.push(tile_pos);
+			const tile_pos = find_main_tile(map_infos, screen_x,
+							screen_y);
+			if (tile_pos)
+				tiles.push(tile_pos);
 		}
 
 		const all = blocks.concat(tiles);
@@ -784,7 +840,6 @@ class BobMap extends BobRenderable {
 		// reconstruction algo needs to iterate on them first.
 		sortWithKey(all, i => i.map_z + (i.block ? 0.5 : 0));
 		return all;
-
 	}
 
 
@@ -794,6 +849,49 @@ class BobMap extends BobRenderable {
 		//const absolute_map_z_min = base_maps[0].min_map_z;
 
 		const find_tiles = this.find_tiles_at_pos.bind(this, base_maps);
+		const shift_to_z
+			= this.constructor.shift_to_z.bind(this.constructor);
+
+		const current_wall = [];
+		let floating_wall;
+
+		const update_wall = (tiles) => {
+			if (tiles.length === 0) {
+				// the wall ended up with nothing.
+				current_wall.length = 0;
+				floating_wall = true;
+				return;
+			}
+			// maybe check that tiles.length is 1 ?
+			const last_tile = tiles[tiles.length - 1];
+			if (!last_tile.quad_type) // there is no tile here.
+				return;
+			if (floating_wall
+			    && last_tile.quad_type.startsWith("WALL_")) {
+				current_wall.push(last_tile);
+				return;
+			}
+			// catches BORDER_SOUTH, BORDER_SW and even
+			// BORDER_SE_FLAT.
+			if (!last_tile.quad_type.startsWith("BORDER_S")) {
+				// sorry, not a floating wall.
+				current_wall.length = 0;
+				floating_wall = false;
+			}
+			if (!floating_wall) {
+				if (last_tile.quad_type.startsWith("BORDER_N"))
+					floating_wall = true;
+				return;
+			}
+			// we are at the end of a floating wall.
+			// now take the border, assume its z is correct and
+			// adjust the height of the walls they are connected to.
+			// This should only adjust floating walls (not
+			// connected to a ground)
+			let map_z = last_tile.map_z;
+			while (current_wall.length)
+				shift_to_z(current_wall.pop(), --map_z);
+		};
 
 		const draw_map = [];
 		for (let scr_x = 0; scr_x < this.mapWidth; ++scr_x) {
@@ -806,6 +904,10 @@ class BobMap extends BobRenderable {
 			const draw_col = new Array(this.mapHeight);
 			draw_map.push(draw_col);
 
+			// first element is, many times, a floating wall.
+			current_wall.length = 0;
+			floating_wall = true;
+
 			for (let scr_y = this.mapHeight; scr_y --> 0;) {
 				const left = scr_x ? draw_map[scr_x-1][scr_y]
 						   : null;
@@ -814,6 +916,9 @@ class BobMap extends BobRenderable {
 							 hidden_block_col,
 							 layer_views_col);
 				draw_col[scr_y] = tiles;
+
+				update_wall(tiles);
+
 				this.handle_tiles_build_map(tiles, left, south);
 			}
 		}
@@ -888,6 +993,9 @@ class BobMap extends BobRenderable {
 				if (tile === -1)
 					return;
 				const tile_pos = get_tile(draw_info);
+				if (!tile_pos)
+					// can happen for DELETE tiles.
+					return;
 				draw_tile(tile, tile_pos, map_info);
 				++count;
 			});
@@ -1028,11 +1136,24 @@ class BobMap extends BobRenderable {
 			// you can't get to S-Rank
 		}
 
+		const find_level = (searched_map) => {
+			for (const levelname in ig.game.levels) {
+				const level = ig.game.levels[levelname];
+				for (const map of level.maps)
+					if (map === searched_map)
+						return level.maps;
+			}
+			console.assert(false, "could not find object map");
+			return [searched_map];
+		};
 
 		sortWithKey(this.layerviews,
 			    layerview => layerview.entity.maps[0].tiles.path);
 		this.layerviews.map((layerview, i) => {
 
+			// fun fact: ig.game.getObjectMaps is hardcoded
+			// to return an array with a single map, which
+			// is what ends up here.
 			const map = layerview.entity.maps[0];
 			const { tilesize } = map;
 			const { pos, size } = layerview.entity.coll;
@@ -1041,28 +1162,39 @@ class BobMap extends BobRenderable {
 			layerview.max_scr_x = layerview.min_scr_x + size_x;
 
 			const map_y = Math.floor(pos.y / tilesize);
-			const size_y = Math.floor(size.y / tilesize);
+			const size_y = Math.ceil(size.y / tilesize);
 
 			const map_z = Math.floor(pos.z / tilesize);
-			const size_z = Math.floor(size.z / tilesize);
+			const size_z = Math.ceil(size.z / tilesize);
 
 			layerview.min_scr_y = map_y - map_z - size_z;
 			layerview.max_scr_y = map_y + size_y - map_z;
 
+			// now, i need the actual level of the object layer view
+			// because the game does not give it.
+
+			const maps = find_level(map);
 			// i have to construct a map_info for each oddball z
-			// position given by the object layer view...
-			layerview.map_info
-				= this.get_mapinfo(map, pos.z, pos.z + size.z);
+			// position given by the object layer view... for each
+			// map.
+			const min_z = pos.z;
+			const max_z = pos.z + size.z;
+
+			layerview.map_infos = maps.map(map => {
+				const ret = this.get_mapinfo(map, min_z, max_z);
+				ret.object_map = i;
+				ret.map = map;
+				return ret;
+			});
 			// used to match map info to us.
 			layerview.index = i;
-			layerview.map_info.object_map = i;
 		});
 	}
 
 	make_layerviews_draw(result_vector, current_i, draw_map) {
-		const handle_layerview_tile = (map, scr_x, scr_y, index,
+		const handle_layerview_tile = (scr_x, scr_y, index,
 					       map_info) => {
-			const tile = map.data[scr_y][scr_x] - 1;
+			const tile = map_info.map.data[scr_y][scr_x] - 1;
 			if (tile === -1)
 				return;
 
@@ -1079,37 +1211,55 @@ class BobMap extends BobRenderable {
 			current_i += 6;
 		};
 
+		const iterate_xy = (min_scr_x, max_scr_x, min_scr_y, max_scr_y,
+				    callback) => {
+			for (let scr_x = min_scr_x; scr_x < max_scr_x; ++scr_x)
+				for (let scr_y = min_scr_y; scr_y < max_scr_y;
+				     ++scr_y)
+					callback(scr_x, scr_y);
+		};
 
 		for (const layerview of this.layerviews) {
 			let { min_scr_x, min_scr_y, max_scr_x, max_scr_y,
-			      index, map_info } = layerview;
-			const map = layerview.entity.maps[0];
-			const texture = this.texture_trove.get(map.tiles.path);
-
-			layerview.tex_range = {
-				start: current_i,
-				texture,
-				mode: "normal",
-				alpha: 1
-			};
+			      index, map_infos } = layerview;
+			const any_map = map_infos[0].map;
 
 			// this is nonsense, but it happens.
 			min_scr_x = Math.max(min_scr_x, 0);
 			min_scr_y = Math.max(min_scr_y, 0);
-			max_scr_x = Math.max(max_scr_x, map.width);
-			max_scr_y = Math.max(max_scr_y, map.height);
+			max_scr_x = Math.min(max_scr_x, any_map.width);
+			max_scr_y = Math.min(max_scr_y, any_map.height);
+			const iterate_tiles
+				= iterate_xy.bind(null, min_scr_x, max_scr_x,
+						  min_scr_y, max_scr_y);
 
-			for (let scr_x = min_scr_x; scr_x < max_scr_x; ++scr_x)
-				for (let scr_y = min_scr_y; scr_y < max_scr_y;
-				     ++scr_y)
-					handle_layerview_tile(map, scr_x, scr_y,
-							      index, map_info);
+			layerview.tex_ranges = [];
+			let tex_range = {};
 
-			layerview.tex_range.size
-				= current_i - layerview.tex_range.start;
-			if (!layerview.tex_range.size) {
-				console.assert("layerview without tiles ?");
+			for (const map_info of map_infos) {
+				if (!map_info.map.tiles.data)
+					continue;
+				const path = map_info.map.tiles.path;
+				if (path !== tex_range.path) {
+					const texture
+						= this.texture_trove.get(path);
+					tex_range = { start: current_i, texture,
+						      mode: "normal", alpha: 1,
+						      blend_color: [0,0,0,0] };
+				}
+				iterate_tiles((scr_x, scr_y) =>
+					handle_layerview_tile(scr_x, scr_y,
+							      index, map_info));
+				const size = current_i - tex_range.start;
+				if (size && !tex_range.size)
+					layerview.tex_ranges.push(tex_range);
+				tex_range.size = size;
 			}
+			// we may fail to pick up OLPlatform tiles here and
+			// there, don't fail hard on them.
+			if (!(layerview.entity instanceof ig.ENTITY.OLPlatform))
+				console.assert(layerview.tex_ranges.length,
+					       "layerview without tiles ?");
 		}
 		return current_i;
 	}
@@ -1154,6 +1304,8 @@ class BobMap extends BobRenderable {
 					continue;
 				const path = map.tiles.path;
 				const img = map.tiles.data;
+				if (!img)
+					continue;
 				const texture = this.texture_trove.add(path,
 								       img);
 				texture_obj[path] = texture;
@@ -1166,11 +1318,13 @@ class BobMap extends BobRenderable {
 		for (const levelname in ig.game.levels)
 			add_texture_of_level(ig.game.levels[levelname]);
 
-		const get_info_if_base_map = maybe_base => (
-			base_maps.find(map_info => (
-				map_info.maps[0] === maybe_base
-			))
-		);
+		const get_info_if_base_map = maybe_base => {
+			for (const map_infos of base_maps)
+				for (const map_info of map_infos)
+					if (map_info.map === maybe_base)
+						return map_info;
+			return null;
+		};
 
 		// now iterate them
 
@@ -1228,11 +1382,11 @@ class BobMap extends BobRenderable {
 			const blended = alpha !== 1;
 			if (blending_mode !== blended)
 				continue;
-			layerview.tex_range.alpha = alpha;
-			if (!layerview.tex_range.size)
-				continue;
+			for (const tex_range of layerview.tex_ranges) {
+				tex_range.alpha = alpha;
 
-			ranges_to_draw.push(layerview.tex_range);
+				ranges_to_draw.push(tex_range);
+			}
 		}
 		if (blending_mode)
 			this.render_blended(ranges_to_draw);
@@ -1269,7 +1423,6 @@ class BobEntities extends BobRenderable {
 		    moretileinfo) {
 		super(context, locations_opaque, locations_blended);
 		this.moretileinfo = moretileinfo;
-		this.camera_z = null;
 	}
 	clear() {
 		this.sprites_by_texture = {};
@@ -1279,13 +1432,12 @@ class BobEntities extends BobRenderable {
 		this.textures_ranges.length = 0;
 	}
 	do_overrides(path, cubesprite, overriden) {
-		if (cubesprite.gui && cubesprite.pos.z >= 142) {
-			const z = this.camera_z;
+		if (cubesprite.bobrank_set_z !== undefined) {
+			const z = cubesprite.bobrank_set_z;
 			const y = cubesprite.pos.y - cubesprite.pos.z + z;
 			const x = cubesprite.pos.x;
 			overriden.pos = { x, y, z };
 		}
-
 
 		// I have LOADS of reserves on how the game classify ground
 		// and wall sprites.
@@ -1317,7 +1469,7 @@ class BobEntities extends BobRenderable {
 		} else if (!cubesprite.size.z)
 			overriden.type = "ground";
 	}
-	prepare_sprites(spritearray) {
+	prepare_sprites(spritearray, hyperz_value, set_z_value) {
 		if (ig.system.context.globalAlpha !== 1)
 			console.log("global alpha not one !");
 		const by_texture = this.sprites_by_texture;
@@ -1342,10 +1494,12 @@ class BobEntities extends BobRenderable {
 
 			let has_opaque = true;
 			let has_blending = false;
-			if (cs.gui && cs.pos.z >= 142) {
+			if (cs.gui && cs.pos.z >= hyperz_value) {
+				cs.bobrank_set_z = set_z_value;
 				this.hyperheight_by_z.push({sprite, path});
 				continue;
-			}
+			} else
+				delete cs.bobrank_set_z;
 			if (cs.renderMode
 			    || Number(cs.alpha) !== 1
 			    || cs.overlay.color) {
@@ -1490,10 +1644,8 @@ class BobEntities extends BobRenderable {
 			let size;
 			for (let i = 0; i < total_size; i+= size) {
 				const src_i = (i + initial_offset) % patch_size;
-				if (i + patch_size < total_size)
-					size = patch_size - src_i;
-				else
-					size = total_size - i;
+				size = Math.min(patch_size - src_i,
+						total_size - i);
 				cb(src_i, size, i);
 			}
 		};
@@ -1560,7 +1712,8 @@ class BobEntities extends BobRenderable {
 	}
 	handle_one_sprite(result_vector, path, sprite) {
 		const cs = sprite.cubeSprite;
-		let is_ground = sprite.ground;
+		const is_game_ground = sprite.ground;
+		let is_ground = is_game_ground;
 		// i have some reserves on how the game classify ground
 		// sprites from wall sprites.
 		// FIXME: this affects ground removal, is that intended ?
@@ -1577,7 +1730,7 @@ class BobEntities extends BobRenderable {
 		const pos = overriden.pos || cs.pos;
 
 		const src_quad_tex
-			= BobEntities.get_src_quad_tex(cs, is_ground);
+			= BobEntities.get_src_quad_tex(cs, is_game_ground);
 
 		if (!src_quad_tex)
 			return 0;
@@ -1705,9 +1858,7 @@ class BobEntities extends BobRenderable {
 		}
 		return i;
 	}
-	finalize(z_for_hyperheights) {
-		this.camera_z = z_for_hyperheights;
-
+	finalize() {
 		const everything = [];
 		let i = 0;
 		i = this.finalize_opaque_sprites(everything, i);
@@ -1805,7 +1956,7 @@ class MoreTileInfos {
 		});
 
 		const TYPE2_WALLS = [
-			"WALL_NE", "WALL_NORTH", "WALL_SE",
+			"WALL_NE", "WALL_NORTH", "WALL_NW",
 			"WALL_NORTH", "WALL_NORTH"
 		];
 
@@ -1832,7 +1983,7 @@ class MoreTileInfos {
 		const add_shift = (sx, sy, type) => {
 			const tileno = x + sx + (y + sy) * 512 / 16;
 			by_tile[tileno] = { type: type, is_default };
-			if (is_default && defaults[type] === undefined)
+			if (is_default)
 				defaults[type] = tileno;
 		};
 		console.assert(info.length === 1, "unsupported stuff", info);
@@ -1892,7 +2043,7 @@ class MoreTileInfos {
 	static get_type(set_info, tileno) {
 		const set = set_info.by_tileno[tileno];
 		if (!set)
-			return "GROUND";
+			return "IGNORE_GROUND";
 		return set.by_tileno[tileno].type;
 	}
 	static get_default(set_info, tileno, type) {
@@ -1905,7 +2056,7 @@ class MoreTileInfos {
 		path = path.replace(/.*[/]/, "");
 		let ret = this.tileinfo[path];
 		if (!ret) {
-			ret = { get_type: () => "BORDER_NORTH",
+			ret = { get_type: () => "IGNORE_GROUND",
 				get_default: () => null,
 				found: false };
 		}
@@ -1917,6 +2068,8 @@ class MoreTileInfos {
 		if (tileinfo.startsWith("IGNORE_"))
 			return "ignore"; // decorative in first map
 		switch (tileinfo) {
+		case "DELETE":
+			return "delete"; // delete them, do not even draw them.
 		case "BORDER_SOUTH":
 		case "BORDER_SW":
 		case "BORDER_SE":
@@ -1948,6 +2101,10 @@ class MoreTileInfos {
 		case "BORDER_NW_FLAT":
 		case "SLOPE_WEST_BORDER_NE": // these are borders, above all
 		case "SLOPE_EAST_BORDER_NW":
+		// those are "top of walls", not followed by grounds.
+		case "WALL_NORTH_END":
+		case "WALL_NE_END":
+		case "WALL_NW_END":
 			return "fall_north"; // fall and go north
 		default:
 			throw "unknown tileinfo" + tileinfo;
@@ -2055,9 +2212,13 @@ class BobGame {
 		this.renderer.enable_depth();
 
 		this.entities.clear();
-		this.entities.prepare_sprites(ig.game.renderer.spriteSlots);
-		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots);
-		this.entities.finalize(this.renderer.camera_center.z);
+		const camera_z = this.renderer.camera_center.z;
+		const high_z = camera_z + 128;
+		this.entities.prepare_sprites(ig.game.renderer.spriteSlots,
+					      high_z, camera_z);
+		this.entities.prepare_sprites(ig.game.renderer.guiSpriteSlots,
+					      high_z, camera_z);
+		this.entities.finalize();
 		this.map.render_opaque();
 		this.map.render_objectlayerviews(false);
 		this.entities.render_opaque();
@@ -2089,11 +2250,30 @@ class BobGame {
 								  screen_y);
 
 		result.x = ret.x;
-		result.y = ret.y;
+		// Of course, if this was this simple....
+		// The game compare those coordinates with ... { x, y - z }
+		// so i need to do the same thing.
+		result.y = ret.y - this.renderer.camera_center.z;
+
 		// note: one of the caller is PlayerCrossHairController
 		// and passes coll.pos as parameter... but it does not
 		// use it for its sprite :(
 		return result;
+	}
+
+	prepare_draw(parent) {
+		if (!this._enabled)
+			return parent();
+		// this huge hack here is an example of things that you
+		// shouldn't do.
+		const orig_zoom = ig.system.zoom;
+		// with that zoom value, prepareDraw() should think all sprites
+		// are visible. Say bye bye to your FPS, but it turns out
+		// a 3d view can see a lot more than a 2d view.
+		ig.system.zoom = 0.000001;
+		const ret = parent();
+		ig.system.zoom = orig_zoom;
+		return ret; // actually unused, but who knows.
 	}
 
 	bind_to_game() {
@@ -2107,6 +2287,13 @@ class BobGame {
 						= this.parent.bind(this, force,
 								   dont_clear);
 					return me.draw_layerz(parent);
+				},
+				prepareDraw: function(entities, force) {
+					const parent
+						= this.parent.bind(this,
+								   entities,
+								   force);
+					return me.prepare_draw(parent);
 				},
 				drawPostLayerSprites: function(force) {
 					const parent
