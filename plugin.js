@@ -2533,12 +2533,12 @@ class BobRank {
 		this.step = "wait";
 		// start the fluff
 		const video = this.evotar.create();
+		const video_promise = this.evotar.prepare_video();
 		Object.assign(video.style, {
 			maxWidth: "100%", maxHeight: "100%",
 			position: "relative"
 		});
 		this.create_events();
-
 		await this.constructor.sleep(1500);
 		if (this.step !== "wait")
 			return;
@@ -2547,6 +2547,7 @@ class BobRank {
 
 		this.step = "fadeout";
 		await this.constructor.sleep(5000);
+		await video_promise;
 		if (this.step !== "fadeout")
 			return;
 		// this is unreliable
@@ -2615,7 +2616,7 @@ class BobRank {
 		this.stop_events[0].start();
 		this.evotar.freeze();
 		this.comments.add_ohno_msg();
-		this.comments.start_ohno(4000, 1000);
+		this.comments.start_ohno(4000, 500);
 
 		await this.constructor.sleep(player_dies ? 3200 : 2000);
 		this.stop_events[1].start();
