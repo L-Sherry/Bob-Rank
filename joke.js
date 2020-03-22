@@ -281,9 +281,13 @@ class BobComments {
 		for (let i = 0; i < initial_count; ++i)
 			this.add_hi_msg();
 
-		this.start_poisson(duration, avg_interval, () => (
+		await this.start_poisson(duration, avg_interval, () => (
 			this.add_hi_msg()
 		));
+		// more a hack than a solution, but one of the sounds need this
+		this.add_msg("Kovacp911", "#b60",
+			     "@RadicalFishGames The future project will have"+
+			     " a dynamic aspect ratio in mind ?");
 	}
 	async start_cool(duration, avg_interval) {
 		this.start_poisson(duration, avg_interval, () => (

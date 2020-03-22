@@ -1,0 +1,46 @@
+{
+	"INTRO": {
+		"dir": "sounds/",
+		"comment": "the fake loader is calibrated for this",
+		"intros": [
+			{ "url": "loader_intro.opus" }
+		]
+	},
+	"main": {
+		"dir": "sounds/main/",
+		"sounds": [
+			{ "url": "barrel_of_laugh3.opus" },
+			{ "url": "crosscode2.opus" },
+			{ "url": "good_errm_oops.opus" },
+			{ "url": "i_am_alone.opus" },
+			{ "url": "its_the_law.opus" },
+			{ "url": "mmmmmmmmmmh.opus" },
+			{ "url": "need_anime_cosplayer_design.opus" },
+			{ "url": "i_think_we_messed_up_or_me.opus" },
+			{ "url": "silence.opus" },
+			{ "url": "soundbot_not_good_enough_you_must_die.opus" },
+			{ "url": "soundbot_promise_to_die_together.opus" },
+			{ "url": "soundbot_seduction.opus" },
+			{ "url": "soundbot_you_are_evil_felix.opus" },
+			{ "url": "soundbot_you_nut.opus" },
+			{ "url": "soundbot_you_nut2.opus" },
+			{ "url": "that_explains_the_everything.opus" },
+			{ "url": "uwu.opus" },
+			{ "url": "we_could_talk_about_nuclear_energy.opus" },
+			{ "url": "why_not_working_jesus_fucking_christ.opus" }
+		]
+	},
+	"herrdekay": {
+		"dir": "sounds/herrdekay/",
+		"intros": [
+			{ "url": "herrdekay_joins_hi.opus" },
+			{ "url": "hey_guy_somebody_joined_us.opus" }
+		],
+		"sounds": [
+			{ "url": "no_dynamic_aspect_ratio.opus" },
+			{ "url": "i_test_things_henne.opus" },
+			{ "url": "soundbot_felix_evil.opus" }
+
+		]
+	}
+}
