@@ -10,13 +10,13 @@ class BobEvotar {
 		this.playlist_index = null;
 		this.timer = null;
 		this.cancel_timer = null;
-		this.my_dir = `${my_dir}/joke`;
+		this.my_dir = my_dir;
 		this.can_transition = null;
 
 		this.playlist_data = [];
 		$.ajax({
 			dataType:"json",
-			url:`${this.my_dir}/playlist.json`,
+			url: this.make_url_join("joke/playlist.json"),
 			success: d => {
 				this.playlist_data = d;
 			},
@@ -59,6 +59,13 @@ class BobEvotar {
 			this.playlist.push(sound_info);
 		}
 	}
+	make_url_join(...paths) {
+		const last = paths.pop();
+		paths.unshift(this.my_dir);
+		return paths.map(component => (
+			component.endsWith("/") ? component : component + "/"
+		)).join("") + last;
+	}
 	next_sound() {
 		if (this.playlist.length === 0)
 			return;
@@ -77,8 +84,8 @@ class BobEvotar {
 
 		const next = this.playlist[this.playlist_index];
 		const subdir = this.playlist_data[next.playlist_name].dir;
-		next_audio.src
-			= this.my_dir + "/" + subdir + "/" + next.sound.url;
+		next_audio.src = this.make_url_join("joke", subdir,
+						    next.sound.url);
 		next_audio.load();
 		
 		if (this.current_audio.src)
@@ -94,7 +101,7 @@ class BobEvotar {
 		video.controls = false;
 		video.loop = true;
 		video.preload = "metadata";
-		video.src = this.my_dir + "/evotar.webm";
+		video.src = this.make_url_join("joke/evotar.webm");
 
 		Object.assign(video.style, {
 			maxWidth: "100%", maxHeight: "100%", width: "100%"
