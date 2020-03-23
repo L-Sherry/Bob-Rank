@@ -2159,7 +2159,7 @@ class BobGame {
 		this.moretileinfo = await new Promise((resolve, reject) => {
 			$.ajax({
 				dataType:"json",
-				url:"assets/data/more-tile-infos.json",
+				url:"data/more-tile-infos.json",
 				success: d => resolve(new MoreTileInfos(d)),
 				error: reject
 			});
