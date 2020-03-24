@@ -2527,6 +2527,16 @@ class BobRank {
 	}
 
 	async start() {
+		try {
+			await this.do_start();
+		} catch (error) {
+			console.error("Failure in Bob-Rank", error);
+			this.stop(false, true);
+			throw error;
+		}
+	}
+
+	async do_start() {
 		if (this.step !== "")
 			return;
 
@@ -2608,7 +2618,7 @@ class BobRank {
 			= steps.map(step => new ig.EVENT_STEP[step.type](step));
 	}
 
-	async stop(player_dies) {
+	async stop(player_dies, no_ar) {
 		if (this.step === "" || this.step === "destroying")
 			return;
 
@@ -2642,7 +2652,8 @@ class BobRank {
 			{ text: crashedmsg, entity: {player:true}, time: 5,
 			  mode: "NO_LINE", color: "RED" }
 		);
-		ar_msg.start();
+		if (!no_ar)
+			ar_msg.start();
 
 		this.bobgame.disable();
 		this.comments.disable();
