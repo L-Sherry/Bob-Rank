@@ -86,8 +86,10 @@ class BobEvotar {
 		const subdir = this.playlist_data[next.playlist_name].dir;
 		next_audio.src = this.make_url_join("joke", subdir,
 						    next.sound.url);
-		next_audio.load();
-		
+		// it should really be audio/opus, but that fails, for like,
+		// half of the sounds.
+		this.force_load_media(next_audio, "audio/ogg");
+
 		if (this.current_audio.src)
 			// what to do if still not loaded ?
 			this.current_audio.play().catch(() => {});
@@ -151,11 +153,44 @@ class BobEvotar {
 
 		return div;
 	}
+	async force_load_media(media_element, mime) {
+		const try_load = () => {
+			media_element.load();
+			return new Promise((resolve, reject) => {
+				media_element.oncanplaythrough = resolve;
+				media_element.onerror = reject;
+			}).finally(() => {
+				media_element.oncanplaythrough = null;
+				media_element.onerror = null;
+			});
+		};
+		try {
+			await try_load();
+		} catch (fail) {
+			console.log("second chance for",media_element.src);
+			// ok, second chance.
+			// This horror has been sponsored by CORS corporation.
+			const response = await fetch(media_element.src);
+			const blob = await response.blob();
+
+			const reader = new FileReader();
+			await new Promise((resolve, reject) => {
+				reader.onload = resolve;
+				reader.onerror = reject;
+				reader.readAsDataURL(blob);
+			});
+			const url = reader.result;
+			const data_index = url.indexOf(";base64");
+
+			media_element.src
+				= `data:${mime}${url.slice(data_index)}`;
+			await try_load();
+		}
+	}
+
 	async prepare_video() {
 		this.video_overlay.style.opacity = "0";
-		this.video.load();
-		return new Promise(resolve => (
-			this.video.addEventListener("canplay", resolve)));
+		await this.force_load_media(this.video, "video/webm");
 	}
 	async run_the_evotar() {
 		let transition_is_ok = null;
