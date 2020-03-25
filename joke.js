@@ -6,6 +6,9 @@ class BobEvotar {
 		this.video = null;
 		this.current_audio = null;
 		this.next_audio = null;
+		// don't think it's a good idea to reuse the game's
+		this.audio_context = new AudioContext;
+
 		this.playlist = [];
 		this.playlist_index = null;
 		this.timer = null;
@@ -69,10 +72,10 @@ class BobEvotar {
 	next_sound() {
 		if (this.playlist.length === 0)
 			return;
-		// swap them
-		const next_audio = this.current_audio;
+
 		this.current_audio = this.next_audio;
-		this.next_audio = next_audio;
+		this.next_audio = null;
+
 
 		++this.playlist_index;
 		if (this.playlist_index >= this.playlist.length) {
@@ -84,15 +87,24 @@ class BobEvotar {
 
 		const next = this.playlist[this.playlist_index];
 		const subdir = this.playlist_data[next.playlist_name].dir;
-		next_audio.src = this.make_url_join("joke", subdir,
-						    next.sound.url);
+		const url = this.make_url_join("joke", subdir, next.sound.url);
 		// it should really be audio/opus, but that fails, for like,
 		// half of the sounds.
-		this.force_load_media(next_audio, "audio/ogg");
+		(async (url) => {
+			const context = this.audio_context;
+			const response = await fetch(url);
+			const array = await response.arrayBuffer();
+			const buffer = await context.decodeAudioData(array);
+			const source = context.createBufferSource();
+			source.buffer = buffer;
+			source.connect(context.destination);
+			source.onended = () => this.next_sound();
+			this.next_audio = source;
+		})(url);
 
-		if (this.current_audio.src)
+		if (this.current_audio)
 			// what to do if still not loaded ?
-			this.current_audio.play().catch(() => {});
+			this.current_audio.start();
 	}
 	// resolves when video ready to be played
 	create() {
@@ -134,19 +146,6 @@ class BobEvotar {
 		div.appendChild(overlay);
 		overlay.appendChild(text);
 
-		const audioplz = () => {
-			const audio = document.createElement("audio");
-			audio.autoplay = false;
-			audio.controls = false;
-			audio.loop = false;
-			audio.preload = "metadata";
-			audio.addEventListener("ended",
-					       () => this.next_sound());
-			return audio;
-		};
-
-		this.current_audio = audioplz();
-		this.next_audio = audioplz();
 		this.new_playlist();
 		// this loads the first sound, but does not play it.
 		this.next_sound();
@@ -207,12 +206,18 @@ class BobEvotar {
 	}
 	freeze() {
 		this.video.pause();
-		this.current_audio.pause();
+		if (this.current_audio) {
+			this.current_audio.onended = null;
+			this.current_audio.stop();
+		}
 		this.video_overlay.style.opacity = "0.8";
 	}
 	destroy_video() {
 		this.video.pause();
-		this.current_audio.pause();
+		if (this.current_audio) {
+			this.current_audio.onended = null;
+			this.current_audio.stop();
+		}
 		if (this.cancel_timer !== null)
 			this.cancel_timer();
 
