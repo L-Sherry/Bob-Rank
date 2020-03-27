@@ -348,9 +348,8 @@ class BobGeo {
 }
 
 class BobMap extends BobRenderable {
-	constructor(context, locations_opaque, locations_blended,
-		    moretileinfo) {
-		super(context, locations_opaque, locations_blended);
+	constructor(bobrender, moretileinfo) {
+		super(bobrender);
 		this.moretileinfo = moretileinfo;
 
 		// { type, tile }
@@ -1424,9 +1423,8 @@ const walk_break_on_first = (object, path) => {
 };
 
 class BobEntities extends BobRenderable {
-	constructor(context, locations_opaque, locations_blended,
-		    moretileinfo) {
-		super(context, locations_opaque, locations_blended);
+	constructor(bobrender, moretileinfo) {
+		super(bobrender);
 		this.moretileinfo = moretileinfo;
 	}
 	clear() {
@@ -2154,17 +2152,6 @@ class BobRank {
 	async setup(original_canvas, canvas3d, canvas2dgui) {
 		this.renderer.setup_canvas(canvas3d);
 
-		// TODO: put this in BobRenderable
-		const opaque_locations = {
-			pos: this.renderer.locations.pos,
-			tex_coord: this.renderer.locations.texcoord
-		};
-		const blend_locations = {
-			pos: this.renderer.blend_locations.pos,
-			tex_coord: this.renderer.blend_locations.texcoord,
-			color_blend: this.renderer.blend_locations.blend_color
-		};
-
 		this.moretileinfo = await new Promise((resolve, reject) => {
 			$.ajax({
 				dataType:"json",
@@ -2174,13 +2161,9 @@ class BobRank {
 			});
 		});
 
-		this.map = new BobMap(this.renderer.context,
-				      opaque_locations,
-				      blend_locations,
+		this.map = new BobMap(this.renderer,
 				      this.moretileinfo);
-		this.entities = new BobEntities(this.renderer.context,
-						opaque_locations,
-						blend_locations,
+		this.entities = new BobEntities(this.renderer,
 						this.moretileinfo);
 
 		this.original_canvas = original_canvas;

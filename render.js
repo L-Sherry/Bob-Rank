@@ -214,20 +214,20 @@ class TextureTrove {
 }
 
 class BobRenderable {
-	constructor(context, locations_opaque, locations_blended) {
-		this.locations_opaque = locations_opaque;
-		this.locations_blended = locations_blended;
+	constructor(bobrender) {
+		this.locations_opaque = bobrender.locations;
+		this.locations_blended = bobrender.blend_locations;
 
-		console.assert(locations_opaque.pos !== undefined
-			       && locations_opaque.tex_coord !== undefined
-			       && locations_blended.pos !== undefined
-			       && locations_blended.tex_coord !== undefined
-			       && locations_blended.color_blend
+		console.assert(this.locations_opaque.pos !== undefined
+			       && this.locations_opaque.texcoord !== undefined
+			       && this.locations_blended.pos !== undefined
+			       && this.locations_blended.texcoord !== undefined
+			       && this.locations_blended.blend_color
 					!== undefined);
 
-		this.context = context;
+		this.context = bobrender.context;
 		this.texture_trove = new TextureTrove(this.context);
-		this.buf = context.createBuffer();
+		this.buf = this.context.createBuffer();
 		// for opaque objects
 		this.textures_ranges = [];
 		// for alpha blendung
@@ -238,10 +238,10 @@ class BobRenderable {
 		select_buffer(this.context, this.buf);
 		// three floats for the position, two floats for texture pos
 		// total = 5
-		const { pos, tex_coord } = this.locations_opaque;
+		const { pos, texcoord } = this.locations_opaque;
 
 		set_vertex_format(this.context, pos, 3, 5, 0);
-		set_vertex_format(this.context, tex_coord, 2, 5, 3);
+		set_vertex_format(this.context, texcoord, 2, 5, 3);
 
 		if (textures_ranges === undefined)
 			textures_ranges = this.textures_ranges;
@@ -260,9 +260,9 @@ class BobRenderable {
 		// or maybe not.
 		select_buffer(this.context, this.buf);
 
-		const { pos, tex_coord, color_blend } = this.locations_blended;
+		const { pos, texcoord, blend_color } = this.locations_blended;
 		set_vertex_format(this.context, pos, 3, 5, 0);
-		set_vertex_format(this.context, tex_coord, 2, 5, 3);
+		set_vertex_format(this.context, texcoord, 2, 5, 3);
 
 		if (textures_ranges === undefined)
 			textures_ranges = this.blending_ranges;
@@ -281,7 +281,7 @@ class BobRenderable {
 			// the time.
 			// (plus, it applies to at least 6 vertex, so it's
 			// 'uniform' enough)
-			this.context.uniform4fv(color_blend,
+			this.context.uniform4fv(blend_color,
 						blendrange.blend_color);
 			draw_triangles(this.context, blendrange.start,
 				       blendrange.size);
