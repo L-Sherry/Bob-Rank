@@ -654,7 +654,8 @@
 		"grounds": {
 			"0,0+302,64": "GROUND",
 			"302,0+160,32": "GROUND",
-			"0,64+69,16": "GROUND"
+			"0,64+69,16": "GROUND",
+			"48,32+80,16": "IGNORE_GROUND"
 		},
 		"leavy": {
 			"0,80+96,96": "TYPE1 DEFAULT",
