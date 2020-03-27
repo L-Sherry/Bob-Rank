@@ -689,12 +689,14 @@ class BobMap extends BobRenderable {
 				--my_tile.map_z;
 			}
 
-			if (last_tile === null) {
-				// fill the height map too.
-				const my_heightinfo
-					= this.get_heightinfo(my_tile.map_x,
-							      my_tile.map_y);
-				console.assert(my_heightinfo, "i'm nowhere");
+			// fill the height map too.
+			const my_heightinfo
+				= this.get_heightinfo(my_tile.map_x,
+						      my_tile.map_y);
+			console.assert(my_heightinfo, "i'm nowhere");
+			console.assert(my_heightinfo.z === null
+				       || my_heightinfo.z <= my_tile.map_z);
+			if (!my_tile.quad_type.startsWith("IGNORE_")) {
 				my_heightinfo.z = my_tile.map_z;
 				my_heightinfo.type = my_tile.quad_type;
 				my_heightinfo.tile = my_tile.tile;
