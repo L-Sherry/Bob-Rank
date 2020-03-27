@@ -680,8 +680,13 @@
 		"stairs ?": {
 			"464,0+48,32": "SLOPE_NORTH"
 		},
-		"bamboos (FIXME: need special support for them)": {
-			"0,176+96,96": "TYPE1 DEFAULT"
+		"bamboos (HACK: using west east, because can't detect walls)": {
+			"0,176+96,96": "TYPE1 DEFAULT",
+			"16,192+64,32": "BORDER_WEST_EAST",
+			"96,208+16,32": "BOTTOM_WALL_NE",
+			"112,208+16,32": "BOTTOM_WALL_NW",
+			"128,208+16,32": "BOTTOM_WALL_NORTH"
+
 		},
 		"house": {
 			"0,412+180,64": "WALL_NORTH",

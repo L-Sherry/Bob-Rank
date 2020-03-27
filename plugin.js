@@ -175,6 +175,7 @@ class BobGeo {
 						       BobGeo._quad_vertical,
 						       size_x, size_y);
 		case "BORDER_WEST":
+		case "BORDER_WEST_EAST":
 		case "BORDER_EAST":
 		case "BORDER_NORTH":
 		case "BORDER_SOUTH":
@@ -1040,6 +1041,8 @@ class BobMap extends BobRenderable {
 		const wall_types = {
 			RISE_BORDER_WEST: "WALL_EAST",
 			FALL_BORDER_EAST: "WALL_WEST",
+			RISE_BORDER_WEST_EAST: "WALL_EAST",
+			FALL_BORDER_WEST_EAST: "WALL_WEST",
 			RISE_BORDER_NW: "WALL_SE",
 			FALL_BORDER_NE: "WALL_SW",
 
@@ -2077,6 +2080,7 @@ class MoreTileInfos {
 		case "BORDER_SE_FLAT":
 		case "BORDER_EAST":
 		case "BORDER_WEST":
+		case "BORDER_WEST_EAST":
 		case "SLOPE_WEST":
 		case "SLOPE_EAST":
 		case "SLOPE_EAST_WALL_NORTH":
