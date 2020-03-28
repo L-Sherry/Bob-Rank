@@ -348,9 +348,10 @@ class BobGeo {
 }
 
 class BobMap extends BobRenderable {
-	constructor(bobrender, moretileinfo) {
+	constructor(bobrender, moretileinfo, map_overrides) {
 		super(bobrender);
 		this.moretileinfo = moretileinfo;
+		this.map_overrides = map_overrides;
 
 		// { type, tile }
 		this.heightinfo_line = null;
@@ -367,6 +368,7 @@ class BobMap extends BobRenderable {
 	steal_map_data(map) {
 		this.hiddenblocks.length = 0;
 		this.layerviews.length = 0;
+		this.fixes = this.map_overrides.fixes_for_map(map);
 
 		// create new heightmap (could try stealing from map, but
 		// not all maps have them)
@@ -800,7 +802,7 @@ class BobMap extends BobRenderable {
 	//  tileinfo of map, map_info
 	// }
 	find_tiles_at_pos(base_maps, screen_x, screen_y,
-			  hiddenblocks, layerviews) {
+			  hiddenblocks, layerviews, fixes) {
 
 		// a hidden block is interesting if we are on top of
 		// it, nothing else (for now)
@@ -835,7 +837,11 @@ class BobMap extends BobRenderable {
 				tiles.push(tile_pos);
 		}
 
-		const all = blocks.concat(tiles);
+		let all = blocks.concat(tiles);
+
+		fixes = MapOverrides.filter_fixes_by_scr_y(fixes, screen_y);
+		all = this.do_map_overrides(fixes, all);
+
 		// sort by ascending z (even if we iterate it backward
 		// later ...)
 		// and put hidden blocks after the rest, because the
@@ -844,6 +850,43 @@ class BobMap extends BobRenderable {
 		return all;
 	}
 
+	do_map_overrides(fixes, tiles) {
+		const type_matches = (types, tile) => {
+			if (!types.length)
+				return true;
+			if (types.includes(tile.quad_type))
+				return true;
+			if (types.includes("BLOCK") && tile.block)
+				return true;
+			return false;
+		};
+		for (const {coord, action, params} of fixes) {
+			const height_matches = tile => {
+				if (!tile.map_info)
+					return false; // probably hidden block
+				if (tile.map_info.min_map_z !== tile.map_z)
+					return false; // don't temper twice.
+				return tile.map_info.min_map_z === coord.z;
+			};
+			if (action === "SET_Z") {
+				const new_z = Number.parseInt(params[0]);
+				const shift_z = new_z - coord.z;
+				for (const tile of tiles) {
+					if (height_matches(tile)
+					    && type_matches(params.slice(1),
+							    tile)) {
+						tile.map_y += shift_z;
+						tile.map_z = new_z;
+					}
+				}
+			} else if (action === "DELETE")
+				tiles = tiles.filter(tile => (
+					!(height_matches(tile)
+					  && type_matches(params, tile))
+				));
+		}
+		return tiles;
+	}
 
 	make_draw_map(base_maps) {
 		if (!base_maps.length)
@@ -903,6 +946,9 @@ class BobMap extends BobRenderable {
 			const layer_views_col = this.layerviews.filter(lv => (
 				lv.min_scr_x <= scr_x && scr_x < lv.max_scr_x
 			));
+			const fixes_col
+				= MapOverrides.filter_fixes_by_x(this.fixes,
+								 scr_x);
 			const draw_col = new Array(this.mapHeight);
 			draw_map.push(draw_col);
 
@@ -916,7 +962,8 @@ class BobMap extends BobRenderable {
 				const south = draw_col[scr_y + 1];
 				const tiles = find_tiles(scr_x, scr_y,
 							 hidden_block_col,
-							 layer_views_col);
+							 layer_views_col,
+							 fixes_col);
 				draw_col[scr_y] = tiles;
 
 				update_wall(tiles);
@@ -1876,31 +1923,49 @@ class BobEntities extends BobRenderable {
 	}
 }
 
-class MoreTileInfos {
+const parse_coords = (coords, scale, default_size) => {
+	const res = /^(\d+),(\d+)(?:\+(\d+),(\d+))?$/.exec(coords);
+	if (!res) {
+		console.assert(false, "invalid entry:", coords);
+		return null;
+	}
+
+	let x = Math.round(Number.parseInt(res[1]) / scale);
+	let y = Math.round(Number.parseInt(res[2]) / scale);
+	let size_x = default_size, size_y = default_size;
+	if (res[3]) {
+		size_x = Math.round(Number.parseInt(res[3]) / scale);
+		size_y = Math.round(Number.parseInt(res[4]) / scale);
+	}
+	return { x, y, size_x, size_y };
+};
+
+class LoadedInfo {
+	async fetch(url) {
+		return new Promise((resolve, reject) => {
+			$.ajax({
+				dataType:"json", url,
+				success: data => {
+					this.parse(data);
+					resolve();
+				},
+				error: reject
+			});
+		});
+	}
+}
+
+class MoreTileInfos extends LoadedInfo {
 	static parse_entry(key, value) {
+		const ret = parse_coords(key, 16, 1);
 
-		const res = /^(\d+),(\d+)(?:\+(\d+),(\d+))?$/.exec(key);
-		if (!res) {
-			console.assert(false, "invalid entry:", key);
-			return null;
-		}
-
-		let x = Math.round(Number.parseInt(res[1]) / 16);
-		let y = Math.round(Number.parseInt(res[2]) / 16);
-		let size_x = 1, size_y = 1;
-		if (res[3]) {
-			size_x = Math.round(Number.parseInt(res[3]) / 16);
-			size_y = Math.round(Number.parseInt(res[4]) / 16);
-		}
-
-		let info;
 		if (value.constructor === String)
-			info = value.split(/\s+/).filter(s => s);
+			ret.info = value.split(/\s+/).filter(s => s);
 		else if (Array.isArray(value))
-			info = value;
+			ret.info = value;
 		else
-			throw "insupported stuff: "+ info;
-		return { x, y, size_x, size_y, info };
+			throw "unsupported stuff: " + value;
+		return ret;
 	}
 	static handle_type1(size_x, size_y, add_function) {
 		console.assert(size_x === 6);
@@ -2008,8 +2073,7 @@ class MoreTileInfos {
 		const entries = [];
 		for (let key in data) {
 			const entry = this.parse_entry(key, data[key]);
-			if (entry !== null)
-				entries.push(entry);
+			entries.push(entry);
 		}
 		sortWithKey(entries, entry => -entry.size_x * entry.size_y);
 		const defaults = {};
@@ -2018,7 +2082,7 @@ class MoreTileInfos {
 							      defaults));
 		return { by_tileno, defaults };
 	}
-	constructor(data) {
+	parse(data) {
 		this.tileinfo = {};
 		for (const tilepath in data) {
 			const set_by_tileno = {};
@@ -2116,6 +2180,62 @@ class MoreTileInfos {
 	}
 }
 
+class MapOverrides extends LoadedInfo {
+	parse(data) {
+		this.overrides_data = data;
+		for (const mapname in this.overrides_data) {
+			const current = this.overrides_data[mapname];
+			const { fixes } = current;
+			const transformed = [];
+			for (const pos in fixes) {
+				const z = pos.indexOf("z");
+				if (z === -1)
+					throw "no height in entry" + mapname +
+						" for " + pos;
+				const coord = parse_coords(pos.slice(0, z),
+							   16, 1);
+				coord.z = Number.parseInt(pos.slice(z + 1));
+				if (isNaN(z))
+					throw "invalid height in entny" + pos;
+
+				coord.scr_y = coord.y - coord.z;
+
+				const fix = fixes[pos];
+
+				const params = fix.split(/\s+/).filter(s => s);
+				const action = params.shift();
+				if (!(action === "DELETE"
+				      || action === "SET_Z"))
+					throw "unknown operation";
+
+				transformed.push({coord, action, params});
+			}
+
+			sortWithKey(transformed, fix => (
+				-fix.coord.size_x * fix.coord.size_y
+			));
+			current.fixes = transformed;
+		}
+	}
+	fixes_for_map(map) {
+		const map_fixes = this.overrides_data[map.name];
+		if (!map_fixes)
+			return [];
+		return map_fixes.fixes;
+	}
+	static filter_fixes_by_x(fixes, x) {
+		return fixes.filter(fix => (
+			fix.coord.x <= x && x < fix.coord.x + fix.coord.size_x
+		));
+	}
+	static filter_fixes_by_scr_y(fixes, screen_y) {
+		return fixes.filter(fix => {
+			const { scr_y, size_y } = fix.coord;
+			return scr_y <= screen_y && screen_y < scr_y + size_y;
+		});
+	}
+}
+
 class BobRank {
 	constructor() {
 		this.renderer = new BobRender();
@@ -2152,19 +2272,18 @@ class BobRank {
 	async setup(original_canvas, canvas3d, canvas2dgui) {
 		this.renderer.setup_canvas(canvas3d);
 
-		this.moretileinfo = await new Promise((resolve, reject) => {
-			$.ajax({
-				dataType:"json",
-				url:"assets/data/more-tile-infos.json",
-				success: d => resolve(new MoreTileInfos(d)),
-				error: reject
-			});
-		});
+		const moretileinfo = new MoreTileInfos;
+		const map_overrides = new MapOverrides;
+		await Promise.all([
+			moretileinfo.fetch("assets/data/more-tile-infos.json"),
+			map_overrides.fetch("assets/data/map-fixes.json")
+		]);
+		this.moretileinfo = moretileinfo;
+		this.map_overrides = map_overrides;
 
-		this.map = new BobMap(this.renderer,
-				      this.moretileinfo);
-		this.entities = new BobEntities(this.renderer,
-						this.moretileinfo);
+		this.map = new BobMap(this.renderer, moretileinfo,
+				      map_overrides);
+		this.entities = new BobEntities(this.renderer, moretileinfo);
 
 		this.original_canvas = original_canvas;
 		this.canvas3d = canvas3d;
