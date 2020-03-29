@@ -23,12 +23,14 @@
 	"autumn/path-2": {
 		"note": "the wallk adjuster has a bug with multiple tiles per positions, worked around here",
 		"fixes": {
-			"256,1154+48,16z0": "SET_Z 2 GROUND",
+			"272,1154+48,16z0": "SET_Z 2 GROUND",
 			"0,1265+960,16z0": "SET_Z 4 GROUND",
 			"448,1152+112,128z0": "SET_Z 4 GROUND",
 			"0,1092+256,112z0": "SET_Z 4 GROUND",
+
 			"272,864+32,128z0": "SET_Z 2",
 			"272,848z0": "SET_Z 4 BORDER_SE",
+
 			"160,640+256,128z0": "SET_Z 4",
 			"768,464+32,16z0": "SET_Z 4 BORDER_SOUTH",
 			"736,448+96,16z0": "SET_Z 2 GROUND",
@@ -48,16 +50,19 @@
 
 			"1296,176z0": "SET_Z 2 GROUND",
 
-			"752,484+64,16z0": "SET_Z 2 GROUND",
-			"720,412+32,16z0": "SET_Z 4 BORDER_SOUTH BORDER_SE",
+			"720,416+32,16z0": "SET_Z 4 BORDER_SOUTH BORDER_SE",
+			"720,462+32,16z0": "SET_Z 2 GROUND",
+
+			"752,484+80,32z0": "SET_Z 2 GROUND",
+
 			"768,192z0": "SET_Z 6 BORDER_SE",
 			"768,768z0": "SET_Z 4 GROUND",
 
 			"688,416+32,16z0": "SET_Z 4 GROUND",
 			"768,244z0": "SET_Z 4 GROUND",
 
-			"592,528+128,80z0": "SET_Z 6 BORDER_SW BORDER_SOUTH",
-			"672,572+64,80z0": "SET_Z 6 BORDER_SW BORDER_SOUTH",
+			"592,528+80,80z0": "SET_Z 6 BORDER_SW BORDER_SOUTH",
+			"672,576+64,80z0": "SET_Z 6 BORDER_SW BORDER_SOUTH",
 
 			"544,560+96,80z0": "SET_Z 4 BORDER_SW BORDER_SE BORDER_SOUTH",
 			"624,592z0": "SET_Z 4",
@@ -92,6 +97,22 @@
 			"512,704z2": "DELETE"
 		}
 	},
+	"autumn/path-6": {
+		"note": "the cave entrance is broken, probably the common object layer view problem",
+		"fixes": {}
+	},
+	"autumn/path-8": {
+		"fixes": {
+			"336,1120z2": "DELETE WALL_NW",
+			"192,1008z2": "DELETE WALL_NE",
+			"892,688z4": "DELETE WALL_NORTH",
+
+			"560,720z2": "SET_Z 1",
+
+			"400,688z0": "DELETE WALL_NORTH"
+		}
+	},
+
 	"forest/path-10": {
 		"fixes": {
 			"576,288+32,16z0": "DELETE WALL_NORTH",
