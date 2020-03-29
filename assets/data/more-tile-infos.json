@@ -214,6 +214,12 @@
 		},
 		"didn't do the autumn fall wallz": {}
 	},
+	"rookie-harbor.png": {
+		"part that can be seen in path-3-1": {
+			"160,64+256,160": "WALL_NORTH",
+			"416,64+32,64": "WALL_NORTH"
+		}
+	},
 	"bergen-trail.png": {
 		"grounds": {
 			"0,0+352,64":"GROUND",
@@ -672,6 +678,15 @@
 			"160,160": "BOTTOM_WALL_NW",
 			"172,144": "BOTTOM_WALL_NW"
 		},
+		"spikes": {
+			"352,656": "WALL_NE_END",
+			"352,672+16,48": "WALL_NE",
+			"368,656": "WALL_NW_END",
+			"368,672+16,48": "WALL_NW",
+			"384,640+32,16": "WALL_NORTH",
+			"384,656+16,64": "WALL_NE",
+			"400,656+16,64": "WALL_NW"
+		},
 		"woddenbridges": {
 			"208,64+32,32": "BOTTOM_WALL_NORTH"
 		},
@@ -722,7 +737,7 @@
 			"224,702+32,32": "GROUND"
 
 		},
-		"waterwalls": {
+		"waterwalls2": {
 			"0,608+32,32": "BOTTOM_WALL_NE",
 			"0,656+32,32": "BOTTOM_WALL_NW",
 			"0,640+32,16": "BOTTOM_WALL_NORTH",
@@ -835,10 +850,17 @@
 			"48,240": "BOTTOM_WALL_NW"
 		},
 		"abysslike": {
-			"96,64+96,112": "TYPE1 DEFAULT"
+			"96,64+96,112": "TYPE1 DEFAULT",
+			"112,64": "BORDER_SE",
+			"96,80": "BORDER_SE",
+			"160,64": "BORDER_SW",
+			"176,80": "BORDER_SW"
 		},
 		"abysslike2 wtf": {
-			"96,176+96,80": "TYPE1"
+			"96,176+96,80": "TYPE1",
+			"112,208": "IGNORE_GROUND",
+			"128,224+32,16": "IGNORE_GROUND",
+			"160,208": "IGNORE_GROUND"
 		},
 		"rocky2": {
 			"192,64+96,80": "TYPE1 DEFAULT",
