@@ -2308,6 +2308,11 @@ class BobRank {
 		// but it is an addon, initialized only when the game starts.
 		sc.Model.addObserver(sc.model, this);
 
+		window.reloadBobrankJson = () => {
+			this.moretileinfo
+		            .fetch("assets/data/more-tile-infos.json");
+			this.map_overrides.fetch("assets/data/map-fixes.json");
+		};
 	}
 
 	draw_layerz (parent) {
