@@ -2504,7 +2504,8 @@ class BobRank {
 			marginLeft: "auto",
 			marginRight: "auto",
 			marginTop: "25px",
-			display:"block"
+			display:"block",
+			width:"50%"
 		});
 		list.src = this.my_dir + "joke/list.png";
 		pane.appendChild(list);
