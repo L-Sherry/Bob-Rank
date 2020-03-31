@@ -232,7 +232,8 @@
 		},
 		"bridges or those tiles things (FIXME find north border ?)": {
 			"176,352+32,16": "GROUND",
-			"208,320+80,48": "GROUND",
+			"208,320+80,16": "BORDER_NORTH",
+			"208,336+80,32": "BORDER_NORTH",
 			"288,336+32,32": "GROUND",
 			"288,380+32,64": "GROUND",
 			"320,432+16,32": "GROUND",
@@ -333,7 +334,8 @@
 			"272,656+16,96": "WALL_NORTH",
 			"272,640+32,144": "WALL_NORTH",
 			"304,736+32,112": "WALL_NORTH",
-			"336,706+80,32": "WALL_NORTH",
+
+			"352,706+48,32": "WALL_NORTH",
 			"288,976+96,48": "WALL_NORTH",
 			"0,848+146,16": "WALL_NORTH",
 			"80,822+48,32": "WALL_NORTH",
