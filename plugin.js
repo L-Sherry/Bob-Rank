@@ -2524,6 +2524,11 @@ class BobRank {
 	}
 
 	async initial_setup() {
+		// Wait for CSS transition (which is 300ms, by the way)
+		this.constructor.sleep(1000);
+
+		this.create_html();
+
 		await this.bobgame.setup(this.canvas3d, this.canvas2dgui);
 	}
 
@@ -2713,8 +2718,14 @@ class BobRank {
 
 
 	resize(width, height) {
-		if (!this.whole_div)
+		if (!this.whole_div) {
+			if (!this.setup_started) {
+				this.initial_setup();
+				this.setup_started = true;
+			}
+			this.setup_started = true;
 			return;
+		}
 		this.whole_div.style.width = width + "px";
 		this.whole_div.style.height = height + "px";
 
@@ -2738,9 +2749,5 @@ export default class Mod extends Plugin {
 			basedir = basedir.slice(assetz + "assets/".length);
 
 		this.bobrank = new BobRank(basedir);
-	}
-	async main() {
-		this.bobrank.create_html();
-		await this.bobrank.initial_setup();
 	}
 }
