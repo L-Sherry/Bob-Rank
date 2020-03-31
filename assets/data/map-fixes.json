@@ -1,18 +1,27 @@
 {
+	"//comment": {
+		"note": [
+			"this file contains every fix that the height",
+			"reconstruction is choking on. the algorithm could be",
+			"improved, but... sometimes, moar code isn't the",
+			"right answer."
+		],
+		"fixes": {}
+	},
 	"autumn/path-1": {
 		"fixes": {
-			"262,580z2": "DELETE WALL_NW"
+			"262,580z32": "DELETE WALL_NW"
 		}
 	},
 	"autumn/cubaum": {
 		"fixes": {
-			"896,1072+32,80z2": "DELETE WALL_NORTH BOTTOM_WALL_NORTH",
+			"896,1072+32,80z32": "DELETE WALL_NORTH BOTTOM_WALL_NORTH",
 			"928,770+64,16z0": "DELETE BORDER_WEST GROUND"
 		}
 	},
 	"autumn/path-1-1": {
 		"fixes": {
-			"1070,560+16,48z2": "SET_Z -1 WALL_NORTH BOTTOM_WALL_NORTH"
+			"1070,560+16,48z32": "SET_Z -16 WALL_NORTH BOTTOM_WALL_NORTH"
 		}
 	},
 	"autumn/path-1-3": {
@@ -23,19 +32,19 @@
 	"autumn/path-2": {
 		"note": "the wallk adjuster has a bug with multiple tiles per positions, worked around here",
 		"fixes": {
-			"272,1154+48,16z0": "SET_Z 2 GROUND",
-			"0,1265+960,16z0": "SET_Z 4 GROUND",
-			"448,1152+112,128z0": "SET_Z 4 GROUND",
-			"0,1092+256,112z0": "SET_Z 4 GROUND",
+			"272,1154+48,16z0": "SET_Z 32 GROUND",
+			"0,1265+960,16z0": "SET_Z 64 GROUND",
+			"448,1152+112,128z0": "SET_Z 64 GROUND",
+			"0,1092+256,112z0": "SET_Z 64 GROUND",
 
-			"272,864+32,128z0": "SET_Z 2",
-			"272,848z0": "SET_Z 4 BORDER_SE",
+			"272,864+32,128z0": "SET_Z 32",
+			"272,848z0": "SET_Z 64 BORDER_SE",
 
-			"160,640+256,128z0": "SET_Z 4",
-			"768,464+32,16z0": "SET_Z 4 BORDER_SOUTH",
-			"736,448+96,16z0": "SET_Z 2 GROUND",
-			"786,352+64,64z0": "SET_Z 2 GROUND",
-			"814,624+64,64z0": "SET_Z 2 GROUND"
+			"160,640+256,128z0": "SET_Z 64",
+			"768,464+32,16z0": "SET_Z 64 BORDER_SOUTH",
+			"736,448+96,16z0": "SET_Z 32 GROUND",
+			"786,352+64,64z0": "SET_Z 32 GROUND",
+			"814,624+64,64z0": "SET_Z 32 GROUND"
 		}
 	},
 	"autumn/path-3-2": {
@@ -44,57 +53,57 @@
 		"note": "the floating wall reconstructor has trouble with y=16",
 
 		"fixes": {
-			"1440,432+60,60z0": "SET_Z 4",
-			"1472,262+128,112z0": "SET_Z 4 GROUND",
-			"1408,336+48,64z0": "SET_Z 2 GROUND",
+			"1440,432+60,60z0": "SET_Z 64",
+			"1472,262+128,112z0": "SET_Z 64 GROUND",
+			"1408,336+48,64z0": "SET_Z 32 GROUND",
 
-			"1296,176z0": "SET_Z 2 GROUND",
+			"1296,176z0": "SET_Z 32 GROUND",
 
-			"720,416+32,16z0": "SET_Z 4 BORDER_SOUTH BORDER_SE",
-			"720,462+32,16z0": "SET_Z 2 GROUND",
+			"720,416+32,16z0": "SET_Z 64 BORDER_SOUTH BORDER_SE",
+			"720,462+32,16z0": "SET_Z 32 GROUND",
 
-			"752,484+80,32z0": "SET_Z 2 GROUND",
+			"752,484+80,32z0": "SET_Z 32 GROUND",
 
-			"768,192z0": "SET_Z 6 BORDER_SE",
-			"768,768z0": "SET_Z 4 GROUND",
+			"768,192z0": "SET_Z 96 BORDER_SE",
+			"768,768z0": "SET_Z 64 GROUND",
 
-			"688,416+32,16z0": "SET_Z 4 GROUND",
-			"768,244z0": "SET_Z 4 GROUND",
+			"688,416+32,16z0": "SET_Z 64 GROUND",
+			"768,244z0": "SET_Z 64 GROUND",
 
-			"592,528+80,80z0": "SET_Z 6 BORDER_SW BORDER_SOUTH",
-			"672,576+64,80z0": "SET_Z 6 BORDER_SW BORDER_SOUTH",
+			"592,528+80,80z0": "SET_Z 96 BORDER_SW BORDER_SOUTH",
+			"672,576+64,80z0": "SET_Z 96 BORDER_SW BORDER_SOUTH",
 
-			"544,560+96,80z0": "SET_Z 4 BORDER_SW BORDER_SE BORDER_SOUTH",
-			"624,592z0": "SET_Z 4",
-			"544,408z0": "SET_Z 4 GROUND",
+			"544,560+96,80z0": "SET_Z 64 BORDER_SW BORDER_SE BORDER_SOUTH",
+			"624,592z0": "SET_Z 64",
+			"544,408z0": "SET_Z 64 GROUND",
 
-			"544,272+64,48z0": "SET_Z 4 GROUND",
+			"544,272+64,48z0": "SET_Z 64 GROUND",
 
-			"512,412z0": "SET_Z 2 GROUND",
-			"512,288z0": "SET_Z 2 GROUND",
+			"512,412z0": "SET_Z 32 GROUND",
+			"512,288z0": "SET_Z 32 GROUND",
 
-			"464,160+32,32z0": "SET_Z 2 GROUND",
+			"464,160+32,32z0": "SET_Z 32 GROUND",
 
 
-			"272,16+128,16z0": "SET_Z 4 BORDER_SOUTH",
+			"272,16+128,16z0": "SET_Z 64 BORDER_SOUTH",
 
-			"1068,16+112,16z0": "SET_Z 6 BORDER_SOUTH"
+			"1068,16+112,16z0": "SET_Z 96 BORDER_SOUTH"
 		}
 	},
 	"autumn/path-3-1": {
 		"note": "having like SET_TILE would be useful here",
 		"fixes": {
-			"400,224z0": "SET_Z 1 WALL_NW",
+			"400,224z0": "SET_Z 16 WALL_NW",
 
-			"640,128z0": "SET_Z 2 BORDER_SW"
+			"640,128z0": "SET_Z 32 BORDER_SW"
 		}
 	},
 	"autumn/lake-observatory": {
 		"fixes": {
-			"256,816z2": "DELETE WALL_NE",
+			"256,816z32": "DELETE WALL_NE",
 			"320,864z0": "DELETE GROUND",
 			"512,704z0": "DELETE GROUND",
-			"512,704z2": "DELETE"
+			"512,704z32": "DELETE"
 		}
 	},
 	"autumn/path-6": {
@@ -103,13 +112,190 @@
 	},
 	"autumn/path-8": {
 		"fixes": {
-			"336,1120z2": "DELETE WALL_NW",
-			"192,1008z2": "DELETE WALL_NE",
-			"892,688z4": "DELETE WALL_NORTH",
+			"336,1120z32": "DELETE WALL_NW",
+			"192,1008z32": "DELETE WALL_NE",
+			"892,688z64": "DELETE WALL_NORTH",
 
-			"560,720z2": "SET_Z 1",
+			"560,720z32": "SET_Z 16",
 
 			"400,688z0": "DELETE WALL_NORTH"
+		}
+	},
+
+
+	"bergen-trail/path-1-entrance": {
+		"fixes": {
+			"352,1552+16,32z32": "DELETE GROUND",
+			"192,1472+32,96z32": "DELETE GROUND",
+			"80,400+16,128z64": "DELETE GROUND",
+			"352,400z64": "DELETE WALL_NE",
+			"832,352z96": "DELETE WALL_NW"
+		}
+	},
+	"bergen-trail/path-2": {
+		"note": "if only the wall shifter worked better with multiple tiles...",
+		"note2": "this contains a hack to have two action cover the same area, because can't have duplicate key with json...",
+		"fixes": {
+			"800,656z0": "DELETE WALL_NORTH",
+
+			"736,304+32,208z-64": "SET_Y 352",
+
+			"672,176+64,656z-64": "SET_Y 240 WALL_NW WALL_NW_END",
+			"672,192+64,640z-64": "SET_Y 352 WALL_NE WALL_NE_END",
+
+			"432,608+32,16z0": "DELETE WALL_NORTH",
+			"32,608+16,64z32": "DELETE GROUND"
+		}
+	},
+	"bergen-trail/path-3-1": {
+		"note": "this one is hard, but unfortunately mostly correct",
+		"note2": "the waterfall is broken, didn't fix the things behind it",
+
+		"fixes": {
+			"1024,448+16,64z-48": "SET_Y 496 WALL_NE",
+			"976,432+32,96z-48": "SET_Y 448",
+
+			"880,720+64,176z-48": "SET_Y 704",
+
+			"752,256+96,288z-48": "SET_Y 272",
+			"768,144+32,96z-48": "SET_Y 176",
+
+			"656,192+16,32z-48": "SET_Y 256",
+			"576,-48+96,240z-48": "SET_Y -16",
+			"340,192+16,32z-48": "SET_Y -16",
+
+			"416,702+16,80z32": "DELETE GROUND",
+			"432,768z32": "DELETE WALL_NW",
+			"432,672z32": "DELETE GROUND",
+
+			"462,432z32": "DELETE WALL_NORTH",
+			"416,416+16,32z32": "DELETE WALL_NE WALL_NORTH"
+		}
+	},
+	"bergen-trail/path-3-2": {
+		"fixes": {
+			"384,1456z0": "DELETE WALL_NW"
+		}
+	},
+	"bergen-trail/path-3-3": {
+		"fixes": {
+			"192,1248z32": "DELETE WALL_NW",
+			"80,1136z32": "DELETE WALL_NORTH",
+			"128,1184z32": "DELETE WALL_NW",
+
+			"224,896z32": "DELETE WALL_NE",
+
+			"128,320+16,32z128": "DELETE WALL_NE WALL_NORTH",
+
+			"352,1616z32": "DELETE",
+
+			"768,416z0": "DELETE WALL_NW",
+
+			"1008,464z0": "DELETE WALL_NE",
+			"992,512z32": "DELETE WALL_NE",
+
+			"848,1112+64,64z32": "DELETE GROUND"
+		}
+	},
+	"bergen-trail/path-5": {
+		"note": "has a problem near x=door on second roof, moreinfo?",
+		"fixes": {
+			"0,1344+32,32z96": "SET_Z 32",
+			"32,1360+32,16z96": "SET_Z 64",
+
+			"1248,640z32": "SET_Z 1",
+			"992,800z0": "DELETE WALL_NW",
+
+			"992,256+192,80z32": "DELETE",
+
+			"1168,448+16,32z32": "DELETE GROUND",
+			"944,256+256,112z0": "DELETE"
+		}
+	},
+
+	"bergen-trail/path-4-2": {
+		"note": "didn't do the cliffs",
+		"fixes": {
+			"416,928z96": "DELETE",
+			"1182,784z64": "DELETE GROUND",
+			"224,400z64": "DELETE WALL_NE",
+			"976,368z32": "DELETE GROUND"
+		}
+	},
+	"bergen-trail/path-4-1": {
+		"fixes": {
+			"656,1424z64": "DELETE WALL_NE"
+		}
+	},
+	"bergen-trail/path-4-1-1": {
+		"fixes": {
+			"592,800z0": "DELETE",
+			"800,816z0": "SET_Z -16"
+		}
+	},
+
+	"bergen-trail/path-6": {
+		"fixes": {
+			"496,2000z64": "DELETE",
+			"832,1632z0": "DELETE",
+			"626,1120z32": "DELETE",
+			"48,784+80,16z128": "SET_Z 112",
+			"48,784z96": "SET_Z 80",
+			"96,736+48,32z160": "DELETE",
+			"1088,1152z0": "DELETE",
+			"1120,784+16,48z160": "DELETE",
+			"912,928z128": "SET_Z 112",
+			"928,928z96": "SET_Z 80"
+		}
+	},
+	"bergen-trail/path-7-1": {
+		"fixes": {
+			"336,1104z32": "DELETE",
+
+			"320,928z32": "DELETE",
+			"368,960z32": "DELETE",
+			"304,1568+32,16z96": "DELETE",
+
+			"528,1280+32,16z64": "DELETE",
+
+			"624,1296+32,16z64": "DELETE",
+
+			"736,528z32": "DELETE WALL_NE",
+
+			"752,1200+48,16z32": "SET_Z 16",
+
+			"688,1440+240,64z0": "DELETE WALL_NW WALL_NE WALL_NORTH",
+			"896,1392z0": "DELETE",
+			"944,1392z0": "DELETE",
+			"960,1376z0": "DELETE",
+
+			"1104,1568+16,80z64": "DELETE",
+
+			"1344,512z160": "DELETE",
+
+			"1152,1072z32": "DELETE",
+
+			"1472,368+32,16z32": "DELETE",
+
+			"1440,1248+48,16z0": "DELETE WALL_NW",
+
+			"1536,1520z0": "DELETE",
+			"1632,1552+16,32z32": "DELETE",
+
+			"1024,736+32,32z128": "DELETE",
+
+			"656,1292+16,32z64": "DELETE",
+			"720,1248+112,32z0": "DELETE WALL_NORTH WALL_NE WALL_NW"
+		}
+
+	},
+	"bergen-trail/path-7-2": {
+		"fixes": {
+			"752,1582+16,64z-64": "DELETE WALL_NORTH",
+			"176,720+16,48z96": "DELETE",
+			"144,720z96": "DELETE WALL_NE",
+			"176,640+16,64z32": "DELETE WALL_NW",
+			"192,1744+16,48z0": "DELETE"
 		}
 	},
 
@@ -119,12 +305,12 @@
 			"880,384+32,16z0": "DELETE WALL_NORTH",
 			"656,1119z0": "DELETE WALL_NORTH",
 
-			"0,1104+128,48z2": "DELETE WALL_NORTH",
-			"0,1104+64,64z4": "DELETE WALL_NORTH",
+			"0,1104+128,48z32": "DELETE WALL_NORTH",
+			"0,1104+64,64z64": "DELETE WALL_NORTH",
 
-			"32,992+16,92z4": "DELETE GROUND",
+			"32,992+16,92z64": "DELETE GROUND",
 			"64,1008+16,32z0": "DELETE GROUND",
-			"64,1040+16,32z2": "DELETE GROUND"
+			"64,1040+16,32z32": "DELETE GROUND"
 		}
 	},
 	"forest/caves/path-08-to-10": {

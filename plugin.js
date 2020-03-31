@@ -840,7 +840,7 @@ class BobMap extends BobRenderable {
 		let all = blocks.concat(tiles);
 
 		fixes = MapOverrides.filter_fixes_by_scr_y(fixes, screen_y);
-		all = this.do_map_overrides(fixes, all);
+		all = this.do_map_overrides(fixes, all, screen_y);
 
 		// sort by ascending z (even if we iterate it backward
 		// later ...)
@@ -850,7 +850,7 @@ class BobMap extends BobRenderable {
 		return all;
 	}
 
-	do_map_overrides(fixes, tiles) {
+	do_map_overrides(fixes, tiles, screen_y) {
 		const type_matches = (types, tile) => {
 			if (!types.length)
 				return true;
@@ -868,15 +868,20 @@ class BobMap extends BobRenderable {
 					return false; // don't temper twice.
 				return tile.map_info.min_map_z === coord.z;
 			};
-			if (action === "SET_Z") {
-				const new_z = Number.parseInt(params[0]);
-				const shift_z = new_z - coord.z;
+			if (action === "SET_Z" || action === "SET_Y") {
+				let shift_yz = Number.parseInt(params[0]);
+				shift_yz = Math.round(shift_yz / 16) - coord.z;
+				if (action === "SET_Y")
+					// current map_y = screen_y + coord.z
+					// new map_y is params[0]
+					// -> params[0] - coord.z - screen_y
+					shift_yz -= screen_y;
 				for (const tile of tiles) {
 					if (height_matches(tile)
 					    && type_matches(params.slice(1),
 							    tile)) {
-						tile.map_y += shift_z;
-						tile.map_z = new_z;
+						tile.map_y += shift_yz;
+						tile.map_z += shift_yz;
 					}
 				}
 			} else if (action === "DELETE")
@@ -1924,7 +1929,7 @@ class BobEntities extends BobRenderable {
 }
 
 const parse_coords = (coords, scale, default_size) => {
-	const res = /^(\d+),(\d+)(?:\+(\d+),(\d+))?$/.exec(coords);
+	const res = /^(-?\d+),(-?\d+)(?:\+(\d+),(\d+))?$/.exec(coords);
 	if (!res) {
 		console.assert(false, "invalid entry:", coords);
 		return null;
@@ -2197,6 +2202,7 @@ class MapOverrides extends LoadedInfo {
 				coord.z = Number.parseInt(pos.slice(z + 1));
 				if (isNaN(z))
 					throw "invalid height in entny" + pos;
+				coord.z = Math.round(coord.z / 16);
 
 				coord.scr_y = coord.y - coord.z;
 
@@ -2205,7 +2211,8 @@ class MapOverrides extends LoadedInfo {
 				const params = fix.split(/\s+/).filter(s => s);
 				const action = params.shift();
 				if (!(action === "DELETE"
-				      || action === "SET_Z"))
+				      || action === "SET_Z"
+				      || action === "SET_Y"))
 					throw "unknown operation";
 
 				transformed.push({coord, action, params});
