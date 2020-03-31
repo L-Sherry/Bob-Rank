@@ -2308,13 +2308,7 @@ class BobGame {
 		this.context_gui.scale(ig.system.contextScale,
 				       ig.system.contextScale);
 
-
 		this.disable();
-
-		// Call my modelChanged please.
-		// sc.model is defined in game.feature.model.game-model
-		// but it is an addon, initialized only when the game starts.
-		sc.Model.addObserver(sc.model, this);
 
 		window.reloadBobrankJson = () => {
 			this.moretileinfo.fetch("data/more-tile-infos.json");
@@ -2323,6 +2317,14 @@ class BobGame {
 	}
 
 	draw_layerz (parent) {
+		if (!this.sc_model_bound) {
+			// Call my modelChanged please.
+			// sc.model is defined in game.feature.model.game-model
+			// but it is an addon, initialized only when the game
+			// starts.
+			sc.Model.addObserver(sc.model, this);
+			this.sc_model_bound = true;
+		}
 		if (!this._enabled) {
 			parent();
 			return;
