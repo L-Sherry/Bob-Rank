@@ -3,7 +3,7 @@
 import { getcol, mulscalar, mulvec, addvec } from "./math.js";
 
 import { fill_const_buffer, fill_dynamic_buffer,
-	 TextureTrove, BobRenderable, BobRender } from "./render.js";
+	 BobRenderable, BobRender } from "./render.js";
 
 // maybe there is a way to iteratize it ?
 const forEachBackward = (array, callback, from) => {
