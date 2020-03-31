@@ -1313,9 +1313,11 @@ class BobMap extends BobRenderable {
 			}
 			// we may fail to pick up OLPlatform tiles here and
 			// there, don't fail hard on them.
+			/*
 			if (!(layerview.entity instanceof ig.ENTITY.OLPlatform))
 				console.assert(layerview.tex_ranges.length,
 					       "layerview without tiles ?");
+			*/
 		}
 		return current_i;
 	}
@@ -1539,10 +1541,10 @@ class BobEntities extends BobRenderable {
 			} else if (cs.image && cs.image.path && cs.image.data) {
 				path = cs.image.path;
 				image = cs.image.data;
-			} else if (!(cs.image instanceof ig.ImageCanvasWrapper))
-				// FIXME: ImageCanvasWrapper will be hard to
-				// cache... but it's the majority of sprites ?
-				console.log("strange sprite");
+			}
+			// The only thing remaining is basically DoubleColor,
+			// which requires way more code that one would want for
+			// something as simple as this.
 			if (!path)
 				continue;
 			const texture = this.texture_trove.add(path, image);
