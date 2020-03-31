@@ -1783,6 +1783,7 @@ class BobEntities extends BobRenderable {
 				break;
 		}
 		const pos = overriden.pos || cs.pos;
+		const size = overriden.size || cs.size;
 
 		const src_quad_tex
 			= BobEntities.get_src_quad_tex(cs, is_game_ground);
@@ -1793,7 +1794,7 @@ class BobEntities extends BobRenderable {
 		// BobGeo want low x, high y, low z
 		let x = pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
 			cs.gfxCut.left;
-		let y = (pos.y + cs.tmpOffset.y + cs.size.y
+		let y = (pos.y + cs.tmpOffset.y + size.y
 			       + cs.gfxOffset.y);
 		let z = pos.z + cs.tmpOffset.z;
 		if (is_ground) {
