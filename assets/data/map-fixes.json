@@ -248,6 +248,12 @@
 			"928,928z96": "SET_Z 80"
 		}
 	},
+	"bergen-trail/path-6-1": {
+		"fixes": {
+			"496,544z64": "DELETE",
+			"560,576z64": "DELETE"
+		}
+	},
 	"bergen-trail/path-7-1": {
 		"fixes": {
 			"336,1104z32": "DELETE",
@@ -296,6 +302,64 @@
 			"144,720z96": "DELETE WALL_NE",
 			"176,640+16,64z32": "DELETE WALL_NW",
 			"192,1744+16,48z0": "DELETE"
+		}
+	},
+
+	"bergen-trail/path-8": {
+
+		"fixes": {
+			"624,1520+64,64z112": "DELETE BLOCK",
+			"832,1536+16,64z32": "DELETE GROUND",
+			"576,1106z0": "DELETE",
+			"944,1104+32,32z0": "DELETE",
+			"496,768z0": "DELETE",
+			"192,625z128": "DELETE",
+			"368,560z128": "DELETE",
+
+			"320,832+32,16z0": "DELETE",
+			"960,704z0": "DELETE"
+		}
+	},
+
+	"heat/path-01-entrance": {
+		"fixes": {
+			"1120,656+16,32z32": "DELETE GROUND",
+			"832,528z0": "DELETE",
+			"752,576z0": "DELETE"
+		}
+	},
+	"heat/path-02": {
+		"fixes": {
+			"288,1360z0": "DELETE",
+			"528,1168z0": "DELETE",
+			"320,1232z0": "DELETE",
+			"160,416+16,32z0": "DELETE",
+			"128,448z32": "DELETE"
+		}
+	},
+
+	"heat/path-05": {
+		"fixes": {
+			"664,276z48": "DELETE BLOCK"
+		}
+	},
+
+	"jungle/path-04-end": {
+		"fixes": {
+			"848,528+1000,1000z64": "DELETE BLOCK",
+			"96,960+64,96z64": "DELETE BLOCK"
+		}
+	},
+	"jungle/right/right-path-04": {
+		"fixes": {
+			"880,1744+48,16z96": "DELETE BLOCK"
+		}
+	},
+
+	"forest/path-04-hostel": {
+		"fixes": {
+			"832,1584+300,300z64": "DELETE BLOCK",
+			"304,1600+160,32z64": "DELETE BLOCK"
 		}
 	},
 

@@ -234,8 +234,14 @@
 			"176,352+32,16": "GROUND",
 			"208,320+80,16": "BORDER_NORTH",
 			"208,336+80,32": "BORDER_NORTH",
+
+			"248,384+32,16": "BORDER_NORTH",
+
 			"288,336+32,32": "GROUND",
-			"288,380+32,64": "GROUND",
+
+			"288,384+32,16": "BORDER_NORTH",
+			"288,396+32,48": "GROUND",
+
 			"320,432+16,32": "GROUND",
 			"320,368+32,64": "GROUND",
 
@@ -492,22 +498,22 @@
 
 		"spikes down": {
 			"0,176": "WALL_NE",
-			"0,192": "BOTTOM_WALL_NE",
+			"0,192": "WALL_NE",
 
 			"16,176": "WALL_NW",
-			"16,192": "BOTTOM_WALL_NW",
+			"16,192": "WALL_NW",
 
-			"32,176": "BOTTOM_WALL_NE",
-			"48,192": "BOTTOM_WALL_NW",
+			"32,176": "WALL_NE",
+			"48,192": "WALL_NW",
 
-			"64,176+32,16": "BOTTOM_WALL_NORTH"
+			"64,176+32,16": "WALL_NORTH"
 		},
 		"spikes up": {
-			"32,192+32,32": "WALL_NORTH",
-			 "0,208": "WALL_NE",
-			"16,208": "WALL_NW",
-			 "0,224": "BOTTOM_WALL_NE",
-			"16,224": "BOTTOM_WALL_NW"
+			"32,192+32,32": "WALL_NORTH_END",
+			 "0,208": "WALL_NE_END",
+			"16,208": "WALL_NW_END",
+			 "0,224": "WALL_NE",
+			"16,224": "WALL_NW"
 		},
 		"sandrocky": {
 			"96,64+96,80": "TYPE1 DEFAULT",
@@ -574,6 +580,46 @@
 		},
 		"moregrounds": {
 			"386,576+128,32": "GROUND"
+		},
+
+		"buildingwall": {
+			"80,960+32,64": "WALL_NORTH",
+			"112,976+48,48": "WALL_NORTH",
+			"160,1008": "BOTTOM_WALL_NE",
+			"160,960+16,48": "WALL_NE",
+			"160,944": "BORDER_SW",
+			"160,928": "BORDER_NW",
+			"176,1008": "BOTTOM_WALL_NW",
+			"176,960+16,48": "WALL_NW",
+			"176,944": "BORDER_SE",
+			"176,928": "BORDER_NE",
+			"192,944": "WALL_NORTH",
+
+
+			"48,896+32,48": "WALL_NORTH",
+			"0,928+48,16": "WALL_NORTH",
+			"16,996+48,16": "WALL_NORTH",
+			"80,880+48,16": "WALL_NORTH",
+
+
+			"64,800": "BORDER_NORTH",
+			"96,800+32,16": "BORDER_NORTH",
+			"272,688": "BORDER_NORTH",
+
+
+			"416,432+16,32": "WALL_NORTH",
+
+			"16,944+48,16": "BORDER_NORTH",
+			"448,416": "BORDER_NW",
+			"464,416": "BORDER_NE",
+			"464,432": "BORDER_SE",
+			"464,448": "WALL_NW",
+			"16,958+48,32": "GROUND",
+
+
+			"0,800+64,16": "GROUND",
+			"16,816+112,16": "GROUND",
+			"80,800": "GROUND"
 		}
 	},
 	"jungle.png": {
@@ -583,26 +629,31 @@
 			"482,32+32,96": "GROUND"
 		},
 		"leavy": {
-			"0,64+96,96": "TYPE1 DEFAULT"
+			"0,64+96,96": "TYPE1 DEFAULT",
+
+
+			"0,160+32,16": "WALL_NE",
+			"32,160+32,16": "WALL_NORTH",
+			"64,160+32,16": "WALL_NW"
 		},
 		"spikes down": {
 			"0,176": "WALL_NE",
-			"0,192": "BOTTOM_WALL_NE",
+			"0,192": "WALL_NE",
 
 			"16,176": "WALL_NW",
-			"16,192": "BOTTOM_WALL_NW",
+			"16,192": "WALL_NW",
 
-			"32,176": "BOTTOM_WALL_NE",
-			"48,192": "BOTTOM_WALL_NW",
+			"32,176": "WALL_NE",
+			"48,192": "WALL_NW",
 
-			"64,176+32,16": "BOTTOM_WALL_NORTH"
+			"64,176+32,16": "WALL_NORTH"
 		},
 		"spikes up": {
-			"32,192+32,32": "WALL_NORTH",
+			"32,192+32,32": "WALL_NORTH_END",
 			 "0,208": "WALL_NE",
 			"16,208": "WALL_NW",
-			 "0,224": "BOTTOM_WALL_NE",
-			"16,224": "BOTTOM_WALL_NW"
+			 "0,224": "WALL_NE",
+			"16,224": "WALL_NW"
 		},
 		"deadtree": {
 			"96,64+96,96": "TYPE1 DEFAULT",
@@ -647,9 +698,9 @@
 			"0,320+32,32": "BOTTOM_WALL_NW",
 			"0,352+32,16": "BOTTOM_WALL_NORTH"
 		},
-		"largetree (is it a prop ?)": {
-			"32,240+44,144": "WALL_NORTH",
-			"176,286+16,96": "WALL_NORTH"
+		"largetree (is it not a prop)": {
+			"32,240+44,144": "WALL_NORTH_END",
+			"176,286+16,96": "WALL_NORTH_END"
 		},
 		"solidbridges (the wooden ones are props)": {
 			"432,464+80,48": "GROUND",
@@ -907,7 +958,7 @@
 		},
 
 		"blackness (like your mind, mister sidwell)": {
-			"96,64": "GROUND"
+			"96,64": "DELETE"
 		},
 
 		"waterfalls": {
