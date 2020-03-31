@@ -384,10 +384,8 @@ class BobRender {
 		// LEQUAL allows us to redraw on the same tile with more
 		// details, which is necessary, at least for maps.
 		this.context.depthFunc(this.context.LEQUAL);
-		// should make this black at some point.
-		// (the default is black with alpha = 0)
 		// wait, doesn't the game have a variable about it ?
-		this.context.clearColor(0, 0, 1, 1); // blue sky (ok ...)
+		this.context.clearColor(0, 0, 0, 1);
 		// note: the default clearDepth is 1
 
 		// maybe disable dithering ?
