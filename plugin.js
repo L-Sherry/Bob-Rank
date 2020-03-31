@@ -2778,7 +2778,7 @@ class BobRank {
 		sc.options._setDisplaySize();
 
 		const crashedmsg
-			= "CrossCode 2 [Evotar Lachsen]: Unexpected Error";
+			= "CrossCode 2: Unexpected Error on Lachsen Evotar";
 
 		const ar_msg = new ig.EVENT_STEP.SHOW_AR_MSG(
 			{ text: crashedmsg, entity: {player:true}, time: 5,
