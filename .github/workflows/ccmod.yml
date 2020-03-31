@@ -1,8 +1,8 @@
-name: make-ccmod-release
+name: make-ccmod-zip-release
 
 on:
   release:
-    types: [published,prereleased]
+    types: [published]
 
 jobs:
   sudo_make_me_a_zip:
@@ -23,7 +23,16 @@ jobs:
           exec ./.github/workflows/ccmod.sh \
             '${{github.repository}}' '${{github.ref}}'
 
-      - name: Add it to the release
+      - name: Add ccmod to the release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{github.event.release.upload_url}}
+          asset_path: ./${{steps.create_zip.outputs.ccmod_name}}
+          asset_name: ${{steps.create_zip.outputs.ccmod_name}}
+          asset_content_type: application/octet-stream
+      - name: Add zip to the releaes
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

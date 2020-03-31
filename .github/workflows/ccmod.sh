@@ -15,17 +15,37 @@ xargs -d '\n' touch --date="$author_date" << EOF
 $filelist
 EOF
 
-# zip everything, hopefully the zip is reproducible
+# zip everything, hopefully the zips are reproducible
 name="${1##*/}"
 version="${2##*/}"
-output="$name-$version.ccmod"
-rm -f "$output"
+outputccmod="$name-$version.ccmod"
+outputdir="$name-$version"
+outputzip="$name-$version.zip"
+rm -f "$outputccmod" "$outputzip" "$outputdir"
 
-printf 'Creating ccmod for %s version %s (%s)\n' "$name" "$version" "$output"
+printf 'Creating zip and ccmod for %s version %s\n' "$name" "$version"
 
-zip "$output" --must-match --no-wild -X -@ << EOF
+# first, create the ccmod
+zip "$outputccmod" --must-match --no-wild -X -@ << EOF
 $filelist
 EOF
 
-# tell github the name of the zip
-printf '::set-output name=zip_name::%s\n' "$output"
+# now create the zip, under a subdirectory.
+
+ln -fs . "$outputdir"
+
+
+prefixed_filelist="$(sed -re "s,^,$outputdir/," << EOF
+$filelist
+EOF
+)"
+
+zip "$outputzip" --must-match --no-wild -X -@ << EOF
+$prefixed_filelist
+EOF
+
+rm -f "$outputdir"
+
+# tell github the name of the zip/ccmod
+printf '::set-output name=ccmod_name::%s\n' "$outputccmod"
+printf '::set-output name=zip_name::%s\n' "$outputzip"
