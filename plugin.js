@@ -3,7 +3,7 @@
 import { getcol, mulscalar, mulvec, addvec } from "./math.js";
 
 import { fill_const_buffer, fill_dynamic_buffer,
-	 TextureTrove, BobRenderable, BobRender } from "./render.js";
+	 BobRenderable, BobRender } from "./render.js";
 
 // maybe there is a way to iteratize it ?
 const forEachBackward = (array, callback, from) => {
@@ -175,6 +175,7 @@ class BobGeo {
 						       BobGeo._quad_vertical,
 						       size_x, size_y);
 		case "BORDER_WEST":
+		case "BORDER_WEST_EAST":
 		case "BORDER_EAST":
 		case "BORDER_NORTH":
 		case "BORDER_SOUTH":
@@ -347,10 +348,10 @@ class BobGeo {
 }
 
 class BobMap extends BobRenderable {
-	constructor(context, locations_opaque, locations_blended,
-		    moretileinfo) {
-		super(context, locations_opaque, locations_blended);
+	constructor(bobrender, moretileinfo, map_overrides) {
+		super(bobrender);
 		this.moretileinfo = moretileinfo;
+		this.map_overrides = map_overrides;
 
 		// { type, tile }
 		this.heightinfo_line = null;
@@ -367,6 +368,7 @@ class BobMap extends BobRenderable {
 	steal_map_data(map) {
 		this.hiddenblocks.length = 0;
 		this.layerviews.length = 0;
+		this.fixes = this.map_overrides.fixes_for_map(map);
 
 		// create new heightmap (could try stealing from map, but
 		// not all maps have them)
@@ -688,12 +690,14 @@ class BobMap extends BobRenderable {
 				--my_tile.map_z;
 			}
 
-			if (last_tile === null) {
-				// fill the height map too.
-				const my_heightinfo
-					= this.get_heightinfo(my_tile.map_x,
-							      my_tile.map_y);
-				console.assert(my_heightinfo, "i'm nowhere");
+			// fill the height map too.
+			const my_heightinfo
+				= this.get_heightinfo(my_tile.map_x,
+						      my_tile.map_y);
+			console.assert(my_heightinfo, "i'm nowhere");
+			console.assert(my_heightinfo.z === null
+				       || my_heightinfo.z <= my_tile.map_z);
+			if (!my_tile.quad_type.startsWith("IGNORE_")) {
 				my_heightinfo.z = my_tile.map_z;
 				my_heightinfo.type = my_tile.quad_type;
 				my_heightinfo.tile = my_tile.tile;
@@ -798,7 +802,7 @@ class BobMap extends BobRenderable {
 	//  tileinfo of map, map_info
 	// }
 	find_tiles_at_pos(base_maps, screen_x, screen_y,
-			  hiddenblocks, layerviews) {
+			  hiddenblocks, layerviews, fixes) {
 
 		// a hidden block is interesting if we are on top of
 		// it, nothing else (for now)
@@ -833,7 +837,11 @@ class BobMap extends BobRenderable {
 				tiles.push(tile_pos);
 		}
 
-		const all = blocks.concat(tiles);
+		let all = blocks.concat(tiles);
+
+		fixes = MapOverrides.filter_fixes_by_scr_y(fixes, screen_y);
+		all = this.do_map_overrides(fixes, all, screen_y);
+
 		// sort by ascending z (even if we iterate it backward
 		// later ...)
 		// and put hidden blocks after the rest, because the
@@ -842,6 +850,50 @@ class BobMap extends BobRenderable {
 		return all;
 	}
 
+	do_map_overrides(fixes, tiles, screen_y) {
+		const type_matches = (types, tile) => {
+			if (!types.length)
+				return true;
+			if (types.includes(tile.quad_type))
+				return true;
+			if (types.includes("BLOCK") && tile.block)
+				return true;
+			return false;
+		};
+		for (const {coord, action, params} of fixes) {
+			const height_matches = tile => {
+				if (tile.block && tile.map_z === coord.z)
+					return true;
+				if (!tile.map_info)
+					return false;
+				if (tile.map_info.min_map_z !== tile.map_z)
+					return false; // don't temper twice.
+				return tile.map_info.min_map_z === coord.z;
+			};
+			if (action === "SET_Z" || action === "SET_Y") {
+				let shift_yz = Number.parseInt(params[0]);
+				shift_yz = Math.round(shift_yz / 16) - coord.z;
+				if (action === "SET_Y")
+					// current map_y = screen_y + coord.z
+					// new map_y is params[0]
+					// -> params[0] - coord.z - screen_y
+					shift_yz -= screen_y;
+				for (const tile of tiles) {
+					if (height_matches(tile)
+					    && type_matches(params.slice(1),
+							    tile)) {
+						tile.map_y += shift_yz;
+						tile.map_z += shift_yz;
+					}
+				}
+			} else if (action === "DELETE")
+				tiles = tiles.filter(tile => (
+					!(height_matches(tile)
+					  && type_matches(params, tile))
+				));
+		}
+		return tiles;
+	}
 
 	make_draw_map(base_maps) {
 		if (!base_maps.length)
@@ -901,6 +953,9 @@ class BobMap extends BobRenderable {
 			const layer_views_col = this.layerviews.filter(lv => (
 				lv.min_scr_x <= scr_x && scr_x < lv.max_scr_x
 			));
+			const fixes_col
+				= MapOverrides.filter_fixes_by_x(this.fixes,
+								 scr_x);
 			const draw_col = new Array(this.mapHeight);
 			draw_map.push(draw_col);
 
@@ -914,7 +969,8 @@ class BobMap extends BobRenderable {
 				const south = draw_col[scr_y + 1];
 				const tiles = find_tiles(scr_x, scr_y,
 							 hidden_block_col,
-							 layer_views_col);
+							 layer_views_col,
+							 fixes_col);
 				draw_col[scr_y] = tiles;
 
 				update_wall(tiles);
@@ -1040,6 +1096,8 @@ class BobMap extends BobRenderable {
 		const wall_types = {
 			RISE_BORDER_WEST: "WALL_EAST",
 			FALL_BORDER_EAST: "WALL_WEST",
+			RISE_BORDER_WEST_EAST: "WALL_EAST",
+			FALL_BORDER_WEST_EAST: "WALL_WEST",
 			RISE_BORDER_NW: "WALL_SE",
 			FALL_BORDER_NE: "WALL_SW",
 
@@ -1257,9 +1315,11 @@ class BobMap extends BobRenderable {
 			}
 			// we may fail to pick up OLPlatform tiles here and
 			// there, don't fail hard on them.
+			/*
 			if (!(layerview.entity instanceof ig.ENTITY.OLPlatform))
 				console.assert(layerview.tex_ranges.length,
 					       "layerview without tiles ?");
+			*/
 		}
 		return current_i;
 	}
@@ -1419,9 +1479,8 @@ const walk_break_on_first = (object, path) => {
 };
 
 class BobEntities extends BobRenderable {
-	constructor(context, locations_opaque, locations_blended,
-		    moretileinfo) {
-		super(context, locations_opaque, locations_blended);
+	constructor(bobrender, moretileinfo) {
+		super(bobrender);
 		this.moretileinfo = moretileinfo;
 	}
 	clear() {
@@ -1484,10 +1543,10 @@ class BobEntities extends BobRenderable {
 			} else if (cs.image && cs.image.path && cs.image.data) {
 				path = cs.image.path;
 				image = cs.image.data;
-			} else if (!(cs.image instanceof ig.ImageCanvasWrapper))
-				// FIXME: ImageCanvasWrapper will be hard to
-				// cache... but it's the majority of sprites ?
-				console.log("strange sprite");
+			}
+			// The only thing remaining is basically DoubleColor,
+			// which requires way more code that one would want for
+			// something as simple as this.
 			if (!path)
 				continue;
 			const texture = this.texture_trove.add(path, image);
@@ -1728,6 +1787,7 @@ class BobEntities extends BobRenderable {
 				break;
 		}
 		const pos = overriden.pos || cs.pos;
+		const size = overriden.size || cs.size;
 
 		const src_quad_tex
 			= BobEntities.get_src_quad_tex(cs, is_game_ground);
@@ -1738,7 +1798,7 @@ class BobEntities extends BobRenderable {
 		// BobGeo want low x, high y, low z
 		let x = pos.x + cs.tmpOffset.x + cs.gfxOffset.x +
 			cs.gfxCut.left;
-		let y = (pos.y + cs.tmpOffset.y + cs.size.y
+		let y = (pos.y + cs.tmpOffset.y + size.y
 			       + cs.gfxOffset.y);
 		let z = pos.z + cs.tmpOffset.z;
 		if (is_ground) {
@@ -1873,31 +1933,49 @@ class BobEntities extends BobRenderable {
 	}
 }
 
-class MoreTileInfos {
+const parse_coords = (coords, scale, default_size) => {
+	const res = /^(-?\d+),(-?\d+)(?:\+(\d+),(\d+))?$/.exec(coords);
+	if (!res) {
+		console.assert(false, "invalid entry:", coords);
+		return null;
+	}
+
+	let x = Math.round(Number.parseInt(res[1]) / scale);
+	let y = Math.round(Number.parseInt(res[2]) / scale);
+	let size_x = default_size, size_y = default_size;
+	if (res[3]) {
+		size_x = Math.round(Number.parseInt(res[3]) / scale);
+		size_y = Math.round(Number.parseInt(res[4]) / scale);
+	}
+	return { x, y, size_x, size_y };
+};
+
+class LoadedInfo {
+	async fetch(url) {
+		return new Promise((resolve, reject) => {
+			$.ajax({
+				dataType:"json", url,
+				success: data => {
+					this.parse(data);
+					resolve();
+				},
+				error: reject
+			});
+		});
+	}
+}
+
+class MoreTileInfos extends LoadedInfo {
 	static parse_entry(key, value) {
+		const ret = parse_coords(key, 16, 1);
 
-		const res = /^(\d+),(\d+)(?:\+(\d+),(\d+))?$/.exec(key);
-		if (!res) {
-			console.assert(false, "invalid entry:", key);
-			return null;
-		}
-
-		let x = Math.round(Number.parseInt(res[1]) / 16);
-		let y = Math.round(Number.parseInt(res[2]) / 16);
-		let size_x = 1, size_y = 1;
-		if (res[3]) {
-			size_x = Math.round(Number.parseInt(res[3]) / 16);
-			size_y = Math.round(Number.parseInt(res[4]) / 16);
-		}
-
-		let info;
 		if (value.constructor === String)
-			info = value.split(/\s+/).filter(s => s);
+			ret.info = value.split(/\s+/).filter(s => s);
 		else if (Array.isArray(value))
-			info = value;
+			ret.info = value;
 		else
-			throw "insupported stuff: "+ info;
-		return { x, y, size_x, size_y, info };
+			throw "unsupported stuff: " + value;
+		return ret;
 	}
 	static handle_type1(size_x, size_y, add_function) {
 		console.assert(size_x === 6);
@@ -2005,8 +2083,7 @@ class MoreTileInfos {
 		const entries = [];
 		for (let key in data) {
 			const entry = this.parse_entry(key, data[key]);
-			if (entry !== null)
-				entries.push(entry);
+			entries.push(entry);
 		}
 		sortWithKey(entries, entry => -entry.size_x * entry.size_y);
 		const defaults = {};
@@ -2015,7 +2092,7 @@ class MoreTileInfos {
 							      defaults));
 		return { by_tileno, defaults };
 	}
-	constructor(data) {
+	parse(data) {
 		this.tileinfo = {};
 		for (const tilepath in data) {
 			const set_by_tileno = {};
@@ -2077,6 +2154,7 @@ class MoreTileInfos {
 		case "BORDER_SE_FLAT":
 		case "BORDER_EAST":
 		case "BORDER_WEST":
+		case "BORDER_WEST_EAST":
 		case "SLOPE_WEST":
 		case "SLOPE_EAST":
 		case "SLOPE_EAST_WALL_NORTH":
@@ -2109,6 +2187,64 @@ class MoreTileInfos {
 		default:
 			throw "unknown tileinfo" + tileinfo;
 		}
+	}
+}
+
+class MapOverrides extends LoadedInfo {
+	parse(data) {
+		this.overrides_data = data;
+		for (const mapname in this.overrides_data) {
+			const current = this.overrides_data[mapname];
+			const { fixes } = current;
+			const transformed = [];
+			for (const pos in fixes) {
+				const z = pos.indexOf("z");
+				if (z === -1)
+					throw "no height in entry" + mapname +
+						" for " + pos;
+				const coord = parse_coords(pos.slice(0, z),
+							   16, 1);
+				coord.z = Number.parseInt(pos.slice(z + 1));
+				if (isNaN(z))
+					throw "invalid height in entny" + pos;
+				coord.z = Math.round(coord.z / 16);
+
+				coord.scr_y = coord.y - coord.z;
+
+				const fix = fixes[pos];
+
+				const params = fix.split(/\s+/).filter(s => s);
+				const action = params.shift();
+				if (!(action === "DELETE"
+				      || action === "SET_Z"
+				      || action === "SET_Y"))
+					throw "unknown operation";
+
+				transformed.push({coord, action, params});
+			}
+
+			sortWithKey(transformed, fix => (
+				-fix.coord.size_x * fix.coord.size_y
+			));
+			current.fixes = transformed;
+		}
+	}
+	fixes_for_map(map) {
+		const map_fixes = this.overrides_data[map.name];
+		if (!map_fixes)
+			return [];
+		return map_fixes.fixes;
+	}
+	static filter_fixes_by_x(fixes, x) {
+		return fixes.filter(fix => (
+			fix.coord.x <= x && x < fix.coord.x + fix.coord.size_x
+		));
+	}
+	static filter_fixes_by_scr_y(fixes, screen_y) {
+		return fixes.filter(fix => {
+			const { scr_y, size_y } = fix.coord;
+			return scr_y <= screen_y && screen_y < scr_y + size_y;
+		});
 	}
 }
 
@@ -2145,34 +2281,18 @@ class BobGame {
 	async setup(canvas3d, canvas2dgui) {
 		this.renderer.setup_canvas(canvas3d);
 
-		// TODO: put this in BobRenderable
-		const opaque_locations = {
-			pos: this.renderer.locations.pos,
-			tex_coord: this.renderer.locations.texcoord
-		};
-		const blend_locations = {
-			pos: this.renderer.blend_locations.pos,
-			tex_coord: this.renderer.blend_locations.texcoord,
-			color_blend: this.renderer.blend_locations.blend_color
-		};
+		const moretileinfo = new MoreTileInfos;
+		const map_overrides = new MapOverrides;
+		await Promise.all([
+			moretileinfo.fetch("data/more-tile-infos.json"),
+			map_overrides.fetch("data/map-fixes.json")
+		]);
+		this.moretileinfo = moretileinfo;
+		this.map_overrides = map_overrides;
 
-		this.moretileinfo = await new Promise((resolve, reject) => {
-			$.ajax({
-				dataType:"json",
-				url:"data/more-tile-infos.json",
-				success: d => resolve(new MoreTileInfos(d)),
-				error: reject
-			});
-		});
-
-		this.map = new BobMap(this.renderer.context,
-				      opaque_locations,
-				      blend_locations,
-				      this.moretileinfo);
-		this.entities = new BobEntities(this.renderer.context,
-						opaque_locations,
-						blend_locations,
-						this.moretileinfo);
+		this.map = new BobMap(this.renderer, moretileinfo,
+				      map_overrides);
+		this.entities = new BobEntities(this.renderer, moretileinfo);
 
 		this.canvas3d = canvas3d;
 		this.canvas_gui = canvas2dgui;
@@ -2196,6 +2316,10 @@ class BobGame {
 		// but it is an addon, initialized only when the game starts.
 		sc.Model.addObserver(sc.model, this);
 
+		window.reloadBobrankJson = () => {
+			this.moretileinfo.fetch("data/more-tile-infos.json");
+			this.map_overrides.fetch("data/map-fixes.json");
+		};
 	}
 
 	draw_layerz (parent) {
