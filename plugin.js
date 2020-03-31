@@ -862,8 +862,10 @@ class BobMap extends BobRenderable {
 		};
 		for (const {coord, action, params} of fixes) {
 			const height_matches = tile => {
+				if (tile.block && tile.map_z === coord.z)
+					return true;
 				if (!tile.map_info)
-					return false; // probably hidden block
+					return false;
 				if (tile.map_info.min_map_z !== tile.map_z)
 					return false; // don't temper twice.
 				return tile.map_info.min_map_z === coord.z;
