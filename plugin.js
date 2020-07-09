@@ -2287,8 +2287,8 @@ class BobRank {
 		const moretileinfo = new MoreTileInfos;
 		const map_overrides = new MapOverrides;
 		await Promise.all([
-			moretileinfo.fetch("assets/data/more-tile-infos.json"),
-			map_overrides.fetch("assets/data/map-fixes.json")
+			moretileinfo.fetch("data/more-tile-infos.json"),
+			map_overrides.fetch("data/map-fixes.json")
 		]);
 		this.moretileinfo = moretileinfo;
 		this.map_overrides = map_overrides;
@@ -2322,8 +2322,8 @@ class BobRank {
 
 		window.reloadBobrankJson = () => {
 			this.moretileinfo
-		            .fetch("assets/data/more-tile-infos.json");
-			this.map_overrides.fetch("assets/data/map-fixes.json");
+		            .fetch("data/more-tile-infos.json");
+			this.map_overrides.fetch("data/map-fixes.json");
 		};
 	}
 
