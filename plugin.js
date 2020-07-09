@@ -1324,10 +1324,7 @@ class BobMap extends BobRenderable {
 		return current_i;
 	}
 
-	steal_map() {
-		// steal the entities usefuls for a map.
-		this.steal_map_entities();
-
+	steal_map_tiles() {
 		// AAHHHH where are my quads ? they take away my display lists,
 		// and now they take away my quads too ?
 		// i have to do TRIANGLES ? TRIANGLES SUCKS ! QUADROGUARD FTW !
@@ -1426,6 +1423,12 @@ class BobMap extends BobRenderable {
 		fill_const_buffer(this.context, this.buf, everything);
 
 		// now i have the map ! time to find the treasure !
+	}
+
+	steal_map() {
+		// steal the entities usefuls for a map.
+		this.steal_map_entities();
+		this.steal_map_tiles();
 	}
 
 	render_objectlayerviews(blending_mode) {
@@ -2320,10 +2323,11 @@ class BobRank {
 		// but it is an addon, initialized only when the game starts.
 		//sc.Model.addObserver(sc.model, this);
 
-		window.reloadBobrankJson = () => {
-			this.moretileinfo
+		window.reloadBobrankJson = async () => {
+			await this.moretileinfo
 		            .fetch("data/more-tile-infos.json");
-			this.map_overrides.fetch("data/map-fixes.json");
+			await this.map_overrides.fetch("data/map-fixes.json");
+			this.map.steal_map_tiles();
 		};
 	}
 
