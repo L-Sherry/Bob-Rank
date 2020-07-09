@@ -1558,8 +1558,8 @@ class BobEntities extends BobRenderable {
 			overriden.type = "ground";
 	}
 	prepare_sprites(spritearray, hyperz_value, set_z_value) {
-		if (ig.system.context.globalAlpha !== 1)
-			console.log("global alpha not one !");
+//		if (ig.system.context.globalAlpha !== 1)
+//			console.log("global alpha not one !");
 		const by_texture = this.sprites_by_texture;
 		for (const sprite of spritearray) {
 			const cs = sprite.cubeSprite;
