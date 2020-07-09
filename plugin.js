@@ -1920,29 +1920,42 @@ class BobEntities extends BobRenderable {
 			// both overlays and lighter overlay.
 			// we should precalculate the color and stuff it.
 
+			let color = null;
+			let color_alpha = 0;
+			const lighter_color = cs.lighterOverlay.color;
+			if (lighter_color) {
+				color = get_color(lighter_color);
+				color_alpha = Number(cs.lighterOverlay.alpha);
+			}
+
 			if (!cs.overlay.color) {
 				if (cs.renderMode === "lighter")
-					add("lighter", alpha_base, null, 0);
+					add("lighter", alpha_base, color,
+					    color_alpha);
 				else if (!cs.renderMode
 					 || cs.renderMode === "source-over")
-					add("normal", alpha_base, null, 0);
+					add("normal", alpha_base, color,
+					    color_alpha);
 				else
 					console.warn("sprite with renderMode",
 						     cs.renderMode);
 			} else {
+				// FIXME: should mix cs.overlay.alpha and
+				// color_alpha somewhat.
 				const color = get_color(cs.overlay.color);
 				add("normal", alpha_base,
 				    color, Number(cs.overlay.alpha));
 			}
-			const lighter_color = cs.lighterOverlay.color;
 			if (lighter_color) {
-				const color = get_color(lighter_color);
-				// FIXME: this is appantly broken, shoot frozen
-				// water bubble to test.
-				// It looks like we shouldn't draw the base
-				// sprite, but i don't understand why.
-				add("lighter", alpha_base,
-				    color, Number(cs.lighterOverlay.alpha));
+				// this deserves an explanation.
+				// lighterOverlay is like overlay, but with
+				// lighter.  That mean the source sprite must
+				// have a factor of 1, instead of
+				// (1-color alpha).  How to fix ? just add the
+				// missing color_alpha from the source sprite,
+				// and nothing else !
+				add("lighter", alpha_base * color_alpha,
+				    null, 0);
 			}
 		}
 		return i;
