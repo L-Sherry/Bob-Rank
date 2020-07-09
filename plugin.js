@@ -840,7 +840,8 @@ class BobMap extends BobRenderable {
 		let all = blocks.concat(tiles);
 
 		fixes = MapOverrides.filter_fixes_by_scr_y(fixes, screen_y);
-		all = this.do_map_overrides(fixes, all, screen_y);
+		all = this.do_map_overrides(fixes, all,
+					    screen_x, screen_y, base_maps);
 
 		// sort by ascending z (even if we iterate it backward
 		// later ...)
@@ -850,7 +851,7 @@ class BobMap extends BobRenderable {
 		return all;
 	}
 
-	do_map_overrides(fixes, tiles, screen_y) {
+	do_map_overrides(fixes, tiles, screen_x, screen_y, base_maps) {
 		const type_matches = (types, tile) => {
 			if (!types.length)
 				return true;
@@ -859,6 +860,12 @@ class BobMap extends BobRenderable {
 			if (types.includes("BLOCK") && tile.block)
 				return true;
 			return false;
+		};
+		const base_map_for_z = z => {
+			for (const map_infos of base_maps)
+				if (map_infos[0].z_min === z)
+					return map_infos[0];
+			return null;
 		};
 		for (const {coord, action, params} of fixes) {
 			const height_matches = tile => {
@@ -891,6 +898,25 @@ class BobMap extends BobRenderable {
 					!(height_matches(tile)
 					  && type_matches(params, tile))
 				));
+			else if (action === "ADD") {
+				const [ base_map_z, tile ] =
+					params.map(n => Number.parseInt(n));
+				const map_info = base_map_for_z(base_map_z);
+				if (!map_info) {
+					console.log("no map for fix",
+						    coord, action);
+					continue;
+				}
+				const quad_type
+					= map_info.tileinfo.get_type(tile);
+				tiles.push({map_x: screen_x,
+					    map_y: screen_y + coord.z,
+					    map_z: coord.z,
+					    tile,
+					    map_info,
+					    true_tile: true,
+					    quad_type});
+			}
 		}
 		return tiles;
 	}
@@ -2220,7 +2246,8 @@ class MapOverrides extends LoadedInfo {
 				const action = params.shift();
 				if (!(action === "DELETE"
 				      || action === "SET_Z"
-				      || action === "SET_Y"))
+				      || action === "SET_Y"
+				      || action === "ADD"))
 					throw "unknown operation";
 
 				transformed.push({coord, action, params});
