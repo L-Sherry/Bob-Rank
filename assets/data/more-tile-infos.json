@@ -998,5 +998,94 @@
 		"lilies": {
 			"256,544+80,32": "GROUND"
 		}
+	},
+	"rhombus-interior.png": {
+		"grounds": {
+			"0,0+32,160": "GROUND",
+			"32,112+16,48": "GROUND"
+		},
+		"walllz": {
+			"32,0+16,80": "WALL_NORTH",
+			"48,80+48,80": "WALL_NORTH",
+
+			"96,96": "BOTTOM_WALL_NW DEFAULT",
+			"96,16": "BORDER_SE",
+			"96,32+16,64": "WALL_NW DEFAULT",
+			"112,80": "BOTTOM_WALL_NORTH DEFAULT",
+			"112,0": "BORDER_SOUTH",
+			"112,16+16,64": "WALL_NORTH DEFAULT",
+			"128,96": "BOTTOM_WALL_NE DEFAULT",
+			"128,16+16,80": "WALL_NE DEFAULT",
+			"128,16": "BORDER_SW",
+			"128,32+16,64": "WALL_NE DEFAULT",
+
+
+			"144,80": "BOTTOM_WALL_NW",
+			"144,0": "BORDER_SE",
+			"144,16+16,64": "WALL_NW",
+			"160,64": "BOTTOM_WALL_NORTH",
+			"160,0+16,64": "WALL_NORTH",
+			"176,80": "BOTTOM_WALL_NE",
+			"176,0": "BORDER_SW",
+			"176,16+16,64": "WALL_NE",
+
+
+			"64,16": "BORDER_EAST",
+			"80,16": "BORDER_WEST",
+
+
+			"192,0+32,80": "WALL_NW",
+			"192,16": "BORDER_SE",
+			"208,0": "BORDER_SE",
+			"192,80": "WALL_NW",
+			"192,96": "BOTTOM_WALL_NW",
+			"208,80": "BOTTOM_WALL_NW",
+
+			"224,0+32,64": "WALL_NORTH",
+			"224,64+32,16": "BOTTOM_WALL_NORTH",
+
+			"256,0+32,80": "WALL_NE",
+
+			"256,0": "BORDER_SW",
+			"272,16": "BORDER_SW",
+
+			"272,80": "WALL_NE",
+			"272,96": "BOTTOM_WALL_NE",
+			"256,80": "BOTTOM_WALL_NE"
+		}
+	},
+	"rhombus-arena-text.png": {
+		"everything": {
+			"0,0+176,64": "WALL_NORTH"
+		}
+	},
+	"shockwave-dng.png": {
+		"wallz": {
+			"0,64+80,128": "TYPE2 DEFAULT",
+
+			"160,64+80,80": "TYPE2",
+			"240,64+80,80": "TYPE2"
+		},
+		"bigsidewallz": {
+			"336,128": "BOTTOM_WALL_NORTH DEFAULT",
+			"16,160": "WALL_NORTH DEFAULT",
+			"80,288": "BORDER_WEST",
+			"96,288": "BORDER_EAST"
+		},
+		"other_walls": {
+			"80,208+48,32": "WALL_NORTH",
+			"336,80+16,64": "WALL_NORTH",
+			"320,128": "BOTTOM_WALL_NE",
+			"320,112": "WALL_NE",
+			"352,112": "WALL_NW"
+		},
+		"glasses": {
+			"112,544+144,48": "WALL_NORTH",
+			"112,592+48,16": "WALL_NORTH"
+		},
+		"waters": {
+			"320,128": "BOTTOM_WALL_NE",
+			"352,128": "BOTTOM_WALL_NW"
+		}
 	}
 }
