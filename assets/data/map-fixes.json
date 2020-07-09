@@ -378,5 +378,23 @@
 		}
 	},
 	"forest/caves/path-08-to-10": {
+	},
+
+	"arena/boss/wave-boss": {
+		"comment": [
+			"height of wall is 10 * 16 = 160",
+			"starts at scr_y=80 (map_y = 240)",
+			"ends at scr_y = 448 (map_y = 608)",
+			"length: 608 - 240 = 368"
+		],
+		"fixes": {
+			"0,240+16,368z0": "DELETE BORDER_EAST",
+			"0,240+16,368z160": "ADD 0 582",
+
+			"592,240+16,368z0": "DELETE BORDER_WEST",
+			"592,240+16,368z160": "ADD 0 581",
+
+			"32,48+544,176z0": "SET_Y 208"
+		}
 	}
 }
