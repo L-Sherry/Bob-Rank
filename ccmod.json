@@ -1,0 +1,22 @@
+{
+	"id":"bobrank",
+	"version": "1.0.0",
+	"title": {
+		"en_US": "Bob-Rank",
+		"fr_FR": "Rang Bob",
+		"de_DE": "Bobreihe"
+	},
+	"description": {
+		"en_US": "Adds an unforgettable special effect on S-Rank",
+		"fr_FR": "Ajoute un effet inoubliable au Rang S",
+		"de_DE": "Füg ein unvergesslich Effekt an S-Rank an"
+	},
+	"icons": {
+		"24": "icon.png"
+	},
+	"plugin": "plugin.js",
+	"assets": [
+		"data/more-tile-infos.json",
+		"data/map-fixes.json"
+	]
+}
