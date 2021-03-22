@@ -2586,9 +2586,8 @@ class BobRank {
 	}
 }
 
-export default class Mod extends Plugin {
+export default class Mod {
 	constructor(what) {
-		super(what);
 	}
 	preload() {
 	}
@@ -2596,7 +2595,7 @@ export default class Mod extends Plugin {
 		this.bobrank = new BobRank();
 		this.bobrank.bind_to_game();
 	}
-	async main() {
+	async poststart() {
 		const origcanvas = ig.system.canvas;
 
 		const div = document.createElement("div");
