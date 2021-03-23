@@ -2,9 +2,5 @@
 	"name":"Bob-Rank",
 	"description": "Adds unforgettable special effects on S-Rank",
 	"plugin": "plugin.js",
-	"version": "0.0.1",
-	"assets": [
-		"assets/data/more-tile-infos.json",
-		"assets/data/map-fixes.json"
-	]
+	"version": "0.0.1"
 }

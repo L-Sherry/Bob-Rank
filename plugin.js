@@ -2325,13 +2325,18 @@ class BobRank {
 	}
 
 	async setup(original_canvas, canvas3d, canvas2dgui) {
+		const basedir = import.meta.url.replace(/(?<!:)[/][/]+/g, '/');
+		const more_tile_info
+			= new URL("assets/data/more-tile-infos.json", basedir);
+		const map_fixes
+			= new URL("assets/data/map-fixes.json", basedir);
 		this.renderer.setup_canvas(canvas3d);
 
 		const moretileinfo = new MoreTileInfos;
 		const map_overrides = new MapOverrides;
 		await Promise.all([
-			moretileinfo.fetch("data/more-tile-infos.json"),
-			map_overrides.fetch("data/map-fixes.json")
+			moretileinfo.fetch(more_tile_info),
+			map_overrides.fetch(map_fixes)
 		]);
 		this.moretileinfo = moretileinfo;
 		this.map_overrides = map_overrides;
@@ -2364,9 +2369,8 @@ class BobRank {
 		//sc.Model.addObserver(sc.model, this);
 
 		window.reloadBobrankJson = async () => {
-			await this.moretileinfo
-		            .fetch("data/more-tile-infos.json");
-			await this.map_overrides.fetch("data/map-fixes.json");
+			await this.moretileinfo.fetch(more_tile_info);
+			await this.map_overrides.fetch(map_fixes);
 			this.map.steal_map_tiles();
 		};
 	}
@@ -2587,15 +2591,16 @@ class BobRank {
 }
 
 export default class Mod {
-	constructor(what) {
-	}
 	preload() {
 	}
 	postload() {
 		this.bobrank = new BobRank();
 		this.bobrank.bind_to_game();
 	}
-	async poststart() {
+	async actually_start() {
+		if (this.started)
+			return;
+		this.started = true;
 		const origcanvas = ig.system.canvas;
 
 		const div = document.createElement("div");
@@ -2620,7 +2625,12 @@ export default class Mod {
 		const canvas2dgui = canvasplz();
 		canvas2dgui.style.zIndex = 1;
 
-		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui,
-					 div);
+		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui);
+	}
+	async main() {
+		await this.actually_start();
+	}
+	async poststart() {
+		await this.actually_start();
 	}
 }

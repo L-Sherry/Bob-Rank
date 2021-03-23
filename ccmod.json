@@ -14,9 +14,5 @@
 	"icons": {
 		"24": "icon.png"
 	},
-	"plugin": "plugin.js",
-	"assets": [
-		"data/more-tile-infos.json",
-		"data/map-fixes.json"
-	]
+	"plugin": "plugin.js"
 }
