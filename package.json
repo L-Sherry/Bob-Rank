@@ -2,5 +2,5 @@
 	"name":"Bob-Rank",
 	"description": "Adds unforgettable special effects on S-Rank",
 	"plugin": "plugin.js",
-	"version": "0.0.1"
+	"version": "1.0.1-beta"
 }

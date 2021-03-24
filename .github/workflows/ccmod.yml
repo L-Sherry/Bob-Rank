@@ -1,0 +1,43 @@
+name: make-ccmod-zip-release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sudo_make_me_a_zip:
+    name: Zip the content into a .ccmod file and upload it to the release
+    runs-on: ubuntu-latest
+    steps:
+      # ... How many github actions does it take to change a lightbulb ?
+      - name: Gets everything
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - name: Create a zip file as ccmod
+        id: create_zip
+        shell: sh
+        run: |
+          : Current Action: ${{github.event.action}}
+          exec ./.github/workflows/ccmod.sh \
+            '${{github.repository}}' '${{github.ref}}'
+
+      - name: Add ccmod to the release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{github.event.release.upload_url}}
+          asset_path: ./${{steps.create_zip.outputs.ccmod_name}}
+          asset_name: ${{steps.create_zip.outputs.ccmod_name}}
+          asset_content_type: application/octet-stream
+      - name: Add zip to the releaes
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{github.event.release.upload_url}}
+          asset_path: ./${{steps.create_zip.outputs.zip_name}}
+          asset_name: ${{steps.create_zip.outputs.zip_name}}
+          asset_content_type: application/octet-stream

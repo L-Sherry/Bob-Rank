@@ -2291,45 +2291,43 @@ class MapOverrides extends LoadedInfo {
 	}
 }
 
-class BobRank {
-	constructor() {
+const baseurl = import.meta.url.replace(/(?<!:)[/][/]+/g, '/');
+
+class BobGame {
+	constructor(on_srank_cb, on_no_srank_cb, on_resize_cb, on_enemy_killed,
+		    on_player_killed) {
 		this.renderer = new BobRender();
 		this.moretileinfo = null;
 		this.map = null;
 		this.entities = null;
-		this._enabled = null;
-		this.original_canvas = null;
+		this._enabled = false;
 		this.canvas3d = null;
 		this.canvas_gui = null;
 		this.context_gui = null;
+		this.on_srank_cb = on_srank_cb;
+		this.on_no_srank_cb = on_no_srank_cb;
+		this.on_resize_cb = on_resize_cb;
+		this.on_enemy_killed = on_enemy_killed;
+		this.on_player_killed = on_player_killed;
 	}
 
 	enable() {
 		if (this._enabled === true)
 			return;
 		this._enabled = true;
-		// note: i can't set display:none to the original canvas,
-		// because it is also used for mouse events.
-		this.original_canvas.style.opacity = "0%";
-		this.canvas3d.style.display = "";
-		this.canvas_gui.style.display = "";
 		this.clear_screen_and_everything();
 	}
 	disable() {
 		if (this._enabled === false)
 			return;
 		this._enabled = false;
-		this.original_canvas.style.opacity = "100%";
-		this.canvas3d.style.display = "none";
-		this.canvas_gui.style.display = "none";
 	}
 
-	async setup(original_canvas, canvas3d, canvas2dgui) {
-		const basedir = import.meta.url.replace(/(?<!:)[/][/]+/g, '/');
+	async setup(canvas3d, canvas2dgui) {
 		const more_tile_info
-			= new URL("assets/data/more-tile-infos.json", basedir);
+			= new URL("assets/data/more-tile-infos.json", baseurl);
 		const map_fixes
-			= new URL("assets/data/map-fixes.json", basedir);
+			= new URL("assets/data/map-fixes.json", baseurl);
 		this.renderer.setup_canvas(canvas3d);
 
 		const moretileinfo = new MoreTileInfos;
@@ -2345,7 +2343,6 @@ class BobRank {
 				      map_overrides);
 		this.entities = new BobEntities(this.renderer, moretileinfo);
 
-		this.original_canvas = original_canvas;
 		this.canvas3d = canvas3d;
 		this.canvas_gui = canvas2dgui;
 
@@ -2360,14 +2357,6 @@ class BobRank {
 		this.context_gui.scale(ig.system.contextScale,
 				       ig.system.contextScale);
 
-
-		this.enable();
-
-		// Call my modelChanged please.
-		// sc.model is defined in game.feature.model.game-model
-		// but it is an addon, initialized only when the game starts.
-		//sc.Model.addObserver(sc.model, this);
-
 		window.reloadBobrankJson = async () => {
 			await this.moretileinfo.fetch(more_tile_info);
 			await this.map_overrides.fetch(map_fixes);
@@ -2376,6 +2365,14 @@ class BobRank {
 	}
 
 	draw_layerz (parent) {
+		if (!this.sc_model_bound) {
+			// Call my modelChanged please.
+			// sc.model is defined in game.feature.model.game-model
+			// but it is an addon, initialized only when the game
+			// starts.
+			sc.Model.addObserver(sc.model, this);
+			this.sc_model_bound = true;
+		}
 		if (!this._enabled) {
 			parent();
 			return;
@@ -2522,7 +2519,17 @@ class BobRank {
 				setCanvasSize: function(width, height,
 							noborder) {
 					this.parent(width, height, noborder);
-					me.resize(width, height);
+					me.on_resize_cb(width, height);
+					//me.resize(width, height);
+				}
+			});
+		});
+		modulize("bobcomment", ["game.feature.combat.combat"], () => {
+			sc.Combat.inject({
+				onCombatantDeathHit: function(murderer,
+							      murdered) {
+					this.parent(murderer, murdered);
+					me.on_entity_murdered(murdered);
 				}
 			});
 		});
@@ -2536,10 +2543,17 @@ class BobRank {
 			return;
 		if (observed.isSRank())
 			// S-Raaaaaaaaank !
-			this.enable();
+			this.on_srank_cb();
 		else
 			// oh noes, no more S-Rank.
-			this.disable();
+			this.on_no_srank_cb();
+	}
+
+	on_entity_murdered(entity) {
+		if (entity.party === sc.COMBATANT_PARTY.ENEMY)
+			this.on_enemy_killed();
+		else if (entity.isPlayer)
+			this.on_player_killed();
 	}
 
 	draw_gui() {
@@ -2584,53 +2598,337 @@ class BobRank {
 			return;
 		this.canvas3d.width = width;
 		this.canvas3d.height = height;
-		this.canvas3d.parentElement.style.width = width+"px";
-		this.canvas3d.parentElement.style.height = height+"px";
 		this.renderer.set_size(width, height);
 	}
 }
 
-export default class Mod {
-	preload() {
-	}
-	postload() {
-		this.bobrank = new BobRank();
-		this.bobrank.bind_to_game();
-	}
-	async actually_start() {
-		if (this.started)
-			return;
-		this.started = true;
-		const origcanvas = ig.system.canvas;
+import { BobEvotar, BobComments } from "./joke.js";
 
+class BobRank {
+	constructor(ddd_only_mode) {
+		this.bobgame = new BobGame(this.start.bind(this),
+					   this.stop.bind(this, false),
+					   this.resize.bind(this),
+					   this.enemy_killed.bind(this),
+					   this.stop.bind(this, true));
+		this.bobgame.bind_to_game();
+
+		this.ddd_only_mode = ddd_only_mode;
+		if (ddd_only_mode)
+			this.evotar = null;
+		else
+			this.evotar = new BobEvotar();
+		this.step = "";
+		this.stop_events = null;
+	}
+
+	create_html() {
+
+		this.original_canvas = ig.system.canvas;
+
+		const fullsize = element => {
+			Object.assign(element.style, {
+				position: "absolute",
+				width: "100%",
+				height: "100%"
+			});
+		};
+
+		// this contains everything
 		const div = document.createElement("div");
-
 		Object.assign(div.style, {
 			position: "absolute",
-			left:"0", right:"0", top:"0", bottom: "0",
+			left: "0", right:"0", top:"0", bottom:"0",
 			margin:"auto"
 		});
+		this.whole_div = div;
 
-		document.getElementById("game").appendChild(div);
+		// this contains the ddd game
+		const game = document.createElement("div");
+		this.game_div = game;
+		div.appendChild(game);
 
 		const canvasplz = () => {
 			let canvas = document.createElement("canvas");
-			canvas.style.position = "absolute";
-			canvas.style.width = "100%";
-			canvas.style.height = "100%";
-			div.appendChild(canvas);
+			fullsize(canvas);
+			game.appendChild(canvas);
+			if (!this.ddd_only_mode)
+				canvas.style.display = "none";
 			return canvas;
 		};
-		const canvas3d = canvasplz();
-		const canvas2dgui = canvasplz();
-		canvas2dgui.style.zIndex = 1;
+		this.canvas3d = canvasplz();
+		this.canvas2dgui = canvasplz();
+		this.canvas2dgui.style.zIndex = 1;
+		document.getElementById("game").appendChild(div);
 
-		await this.bobrank.setup(origcanvas, canvas3d, canvas2dgui);
+		if (this.ddd_only_mode) {
+			// Start 3d-only mode right away.
+			fullsize(game);
+			this.original_canvas.opacity = "0%";
+			return;
+		}
+
+		const backgroundurl
+			= encodeURI(new URL("joke/background.png", baseurl));
+		Object.assign(div.style, {
+			backgroundImage: `url("${backgroundurl}")`,
+			backgroundSize: "cover",
+			display: "none"
+		});
+		Object.assign(game.style, {
+			position: "absolute", top: "0", left: "0",
+			width: "83%", height: "83%"
+		});
+		// right pane, 18% size
+		const pane = document.createElement("div");
+		this.pane_div = pane;
+		Object.assign(pane.style, {
+			position: "absolute", right: "0", top: "0",
+			height: "100%", width: "18%"
+		});
+
+		const list = document.createElement("img");
+		Object.assign(list.style, {
+			marginLeft: "auto",
+			marginRight: "auto",
+			marginTop: "25px",
+			display:"block",
+			width:"50%"
+		});
+		list.src = new URL("joke/list.png", baseurl);
+		pane.appendChild(list);
+
+		this.comments = new BobComments();
+		const chatbox = this.comments.create();
+		pane.appendChild(chatbox);
+
+		div.appendChild(pane);
 	}
-	async main() {
-		await this.actually_start();
+
+	static async sleep(millisecs) {
+		return new Promise(resolve => setTimeout(resolve, millisecs));
 	}
-	async poststart() {
-		await this.actually_start();
+
+	async initial_setup() {
+		// Wait for CSS transition (which is 300ms, by the way)
+		this.constructor.sleep(1000);
+
+		this.create_html();
+
+		await this.bobgame.setup(this.canvas3d, this.canvas2dgui);
+		if (this.ddd_only_mode)
+			this.bobgame.enable();
+	}
+
+	async start() {
+		if (this.ddd_only_mode)
+			return;
+		try {
+			await this.do_start();
+		} catch (error) {
+			console.error("Failure in Bob-Rank", error);
+			this.stop(false, true);
+			throw error;
+		}
+	}
+
+	async do_start() {
+		if (this.step !== "")
+			return;
+
+		this.step = "wait";
+		// start the fluff
+		const video = this.evotar.create();
+		const video_promise = this.evotar.prepare_video();
+		Object.assign(video.style, {
+			maxWidth: "100%", maxHeight: "100%",
+			position: "relative"
+		});
+		this.create_events();
+		await this.constructor.sleep(1500);
+		if (this.step !== "wait")
+			return;
+		ig.slowMotion.add(0, 2, "ZOMGBOBRANK");
+		ig.bgm.pause(ig.BGM_SWITCH_MODE.VERY_SLOW);
+
+		this.step = "fadeout";
+		await this.constructor.sleep(5000);
+		await video_promise;
+		if (this.step !== "fadeout")
+			return;
+		// this is unreliable
+		ig.soundManager.pushPaused();
+		// FIXME: player can still interact with everything
+
+
+		this.game_div.appendChild(video);
+		this.evotar.run_the_evotar();
+		this.comments.reset_enable();
+		this.comments.start_hi(35000, 4000);
+
+		this.original_canvas.opacity = "0%";
+		this.whole_div.style.display = "block";
+
+		// the original canvas behind all this is still at its true
+		// size, but we need to reduce its screen width and height
+		// so that it calculates mouse coordinates correctly.
+		ig.system.screenWidth = ig.system.screenWidth * 0.83;
+		ig.system.screenHeight = ig.system.screenHeight * 0.83;
+
+
+		this.step = "start";
+		await this.evotar.wait_for_transition();
+		if (this.step !== "start")
+			return;
+		this.step = "fake_load";
+		this.pane_div.insertBefore(video, this.pane_div.firstChild);
+		this.canvas2dgui.style.display = "";
+
+		await this.do_fake_load_animation();
+		if (this.step !== "fake_load")
+			return;
+		this.step = "running";
+		this.canvas3d.style.display = "";
+		this.comments.start_cool(5000, 1000);
+		ig.soundManager.popPaused();
+
+		ig.slowMotion.clearNamed("ZOMGBOBRANK", 3);
+		ig.bgm.resume(ig.BGM_SWITCH_MODE.MEDIUM);
+
+		this.bobgame.enable();
+	}
+
+	create_events() {
+		if (this.stop_events !== null)
+			return;
+
+		const steps = [
+			// play a evotar destroyed sound
+			{ type: "PLAY_SOUND", speed: 0.3, global: true,
+			  sound:"media/sound/misc/countdown-1.ogg"},
+			{ type: "PLAY_SOUND", global: true,
+			  sound:"media/sound/scenes/bomb-explosion.ogg" }
+		];
+		// those sounds need some loading before they can play
+		this.stop_events
+			= steps.map(step => new ig.EVENT_STEP[step.type](step));
+	}
+
+	async stop(player_dies, no_ar) {
+		if (this.step === "" || this.step === "destroying")
+			return;
+
+		this.step = "destroying";
+		this.stop_events[0].start();
+		this.evotar.freeze();
+		this.comments.add_ohno_msg();
+		this.comments.start_ohno(4000, 500);
+
+		await this.constructor.sleep(player_dies ? 3200 : 2000);
+		this.stop_events[1].start();
+		await this.constructor.sleep(500);
+		this.step = "";
+
+		// must undo everything, at whatever step we are.
+		this.canvas3d.style.display = "none";
+		this.canvas2dgui.style.display = "none";
+		this.original_canvas.opacity = "100%";
+		this.whole_div.style.display = "none";
+		this.evotar.destroy_video();
+		ig.soundManager.popPaused();
+		ig.slowMotion.clearNamed("ZOMGBOBRANK");
+		ig.bgm.resume(ig.BGM_SWITCH_MODE.FAST);
+		// recalculate the original screenWidth
+		sc.options._setDisplaySize();
+
+		const crashedmsg
+			= "CrossCode 2: Unexpected Error on Lachsen Evotar";
+
+		const ar_msg = new ig.EVENT_STEP.SHOW_AR_MSG(
+			{ text: crashedmsg, entity: {player:true}, time: 5,
+			  mode: "NO_LINE", color: "RED" }
+		);
+		if (!no_ar)
+			ar_msg.start();
+
+		this.bobgame.disable();
+		this.comments.disable();
+		this.step="";
+	}
+	async enemy_killed() {
+		if (this.step === "")
+			return;
+
+		await this.constructor.sleep(2500 + Math.random() * 1500);
+
+		this.comments.add_cool_msg();
+	}
+
+	async do_fake_load_animation() {
+		const context = this.canvas2dgui.getContext("2d");
+		const BAR_WIDTH = 370;
+		const BAR_HEIGHT = 20;
+		// center that
+		const BAR_X = Math.floor((ig.system.width - BAR_WIDTH) / 2);
+		const BAR_Y = Math.floor((ig.system.height - BAR_HEIGHT) / 2);
+
+		context.fillStyle = "black";
+		context.fillRect(0, 0, ig.system.width, ig.system.height);
+		// sie sehen...
+		context.fillStyle = "#ddd";
+		context.fillRect(BAR_X - 3, BAR_Y - 3,
+				 BAR_WIDTH + 6, BAR_HEIGHT + 6);
+		// ...den neuen...
+		context.fillStyle = "black";
+		context.fillRect(BAR_X - 2, BAR_Y - 2,
+				 BAR_WIDTH + 4, BAR_HEIGHT + 4);
+		context.fillStyle = "#ddd";
+
+		const TOTAL_TIME = 4500;
+		const STEPS = 8;
+		const STEP_NOMINAL_TIME = TOTAL_TIME / STEPS;
+		let current_time_like = 0;
+		const BAR_NOMINAL_STEP = BAR_WIDTH / STEPS;
+		for (let i = 0; i < STEPS; ++i) {
+
+			let next_time = i * STEP_NOMINAL_TIME;
+			next_time
+				+= (Math.random()-0.5) * STEP_NOMINAL_TIME / 3;
+			const wait = next_time - current_time_like;
+
+			let bar = i * BAR_NOMINAL_STEP;
+			bar += (Math.random() - 0.5) * BAR_NOMINAL_STEP / 2;
+			bar = Math.max(Math.min(bar, BAR_WIDTH), 0);
+			context.fillRect(BAR_X, BAR_Y, bar, BAR_HEIGHT);
+
+			await this.constructor.sleep(wait);
+			current_time_like = next_time;
+		}
+	}
+
+
+	resize(width, height) {
+		if (!this.whole_div) {
+			if (!this.setup_started) {
+				this.initial_setup();
+				this.setup_started = true;
+			}
+			this.setup_started = true;
+			return;
+		}
+		this.whole_div.style.width = width + "px";
+		this.whole_div.style.height = height + "px";
+
+		if (!this.ddd_only_mode) {
+			width = width * 0.83;
+			height = height * 0.83;
+		}
+		this.bobgame.resize(width, height);
+	}
+}
+
+export default class Mod {
+	postload() {
+		this.bobrank = new BobRank(false);
 	}
 }
