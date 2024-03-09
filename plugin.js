@@ -729,8 +729,17 @@ class BobMap extends BobRenderable {
 
 			const map_infos = [];
 			for (const map of level.maps) {
+				// maps with distance != 1 are parallax things
+				// which should be rended in 2d on the
+				// background.
+				//
+				// maps with repeat are also parallax things,
+				// which repeats (e.g. the water of the shmup
+				// quest of rookieharbor), but they should
+				// probably be rendered in 3d, but disconnected
+				// from the other levels.
 				const distance = Number(map.distance);
-				if (distance !== 1)
+				if (distance !== 1 || map.repeat)
 					continue;
 				if (!map.tiles.data)
 					continue;
