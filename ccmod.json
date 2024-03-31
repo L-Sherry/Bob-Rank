@@ -13,7 +13,7 @@
 	},
 	"repository": "https://github.com/L-Sherry/Bob-Rank",
 	"tags": ["fun"],
-	"authors": "L-Sherry",
+	"authors": ["L-Sherry"],
 	"icons": {
 		"24": "icon.png"
 	},
