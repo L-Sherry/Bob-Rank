@@ -166,7 +166,6 @@ class BobEvotar {
 		try {
 			await try_load();
 		} catch (fail) {
-			console.log("second chance for",media_element.src);
 			// ok, second chance.
 			// This horror has been sponsored by CORS corporation.
 			const response = await fetch(media_element.src);
