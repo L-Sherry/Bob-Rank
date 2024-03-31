@@ -2300,7 +2300,12 @@ class MapOverrides extends LoadedInfo {
 	}
 }
 
-const baseurl = import.meta.url.replace(/(?<!:)[/][/]+/g, '/');
+const relURLOf = path_from_mod => {
+	const path_abs = new URL(path_from_mod, import.meta.url).pathname;
+	if (!path_abs.startsWith("/assets/"))
+		return ".." + path_abs;
+	return path_abs.substr(8);
+}
 
 class BobGame {
 	constructor(on_srank_cb, on_no_srank_cb, on_resize_cb, on_enemy_killed,
@@ -2334,9 +2339,9 @@ class BobGame {
 
 	async setup(canvas3d, canvas2dgui) {
 		const more_tile_info
-			= new URL("assets/data/more-tile-infos.json", baseurl);
+			= relURLOf("assets/data/more-tile-infos.json");
 		const map_fixes
-			= new URL("assets/data/map-fixes.json", baseurl);
+			= relURLOf("assets/data/map-fixes.json");
 		this.renderer.setup_canvas(canvas3d);
 
 		const moretileinfo = new MoreTileInfos;
@@ -2626,7 +2631,7 @@ class BobRank {
 		if (ddd_only_mode)
 			this.evotar = null;
 		else
-			this.evotar = new BobEvotar();
+			this.evotar = new BobEvotar(relURLOf("."));
 		this.step = "";
 		this.stop_events = null;
 	}
@@ -2678,7 +2683,7 @@ class BobRank {
 		}
 
 		const backgroundurl
-			= encodeURI(new URL("joke/background.png", baseurl));
+			= encodeURI(relURLOf("joke/background.png"));
 		Object.assign(div.style, {
 			backgroundImage: `url("${backgroundurl}")`,
 			backgroundSize: "cover",
@@ -2704,7 +2709,7 @@ class BobRank {
 			display:"block",
 			width:"50%"
 		});
-		list.src = new URL("joke/list.png", baseurl);
+		list.src = relURLOf("joke/list.png");
 		pane.appendChild(list);
 
 		this.comments = new BobComments();

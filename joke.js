@@ -2,7 +2,7 @@
 const randint = x => Math.floor(x * Math.random());
 
 class BobEvotar {
-	constructor() {
+	constructor(my_dir) {
 		this.video = null;
 		this.current_audio = null;
 		this.next_audio = null;
@@ -13,8 +13,7 @@ class BobEvotar {
 		this.playlist_index = null;
 		this.timer = null;
 		this.cancel_timer = null;
-		const basedir = import.meta.url.replace(/(?<!:)[/][/]+/g, '/');
-		this.my_dir = (new URL(".", basedir)).toString();
+		this.my_dir = my_dir;
 		this.can_transition = null;
 
 		this.playlist_data = [];
